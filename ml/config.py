@@ -29,6 +29,9 @@ logger.info(f"DATA_DIR path is: {DATA_DIR}")
 SAMPLE_DATA_DIR = os.getenv("SAMPLE_DATA_DIR", DATA_DIR / "sample")
 logger.info(f"SAMPLE_DATA_DIR path is: {SAMPLE_DATA_DIR}")
 
+CONFIGS_DIR = os.getenv("CONFIGS_DIR", PROJ_ROOT / "configs")
+logger.info(f"CONFIGS_DIR path is: {CONFIGS_DIR}")
+
 RAW_DATA_DIR = DATA_DIR / "raw"
 INTERIM_DATA_DIR = DATA_DIR / "interim"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
