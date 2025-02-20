@@ -48,12 +48,14 @@ make env
 This will create a conda environment called `ccml_lightning` and install all the required dependencies.
 
 If you already have a conda environment `(env_name)`, you can install the dependencies using the following command:
+
 ```bash
 conda activate (env_name)
 make requirements
 ```
 
 Fill the `.env` file with the appropriate values.
+
 ```bash
 touch .env
 
@@ -81,41 +83,42 @@ echo "LOGS_DIR=" >> .env  # Directory to the logs
 ## Project Organization
 
 ```
-├── LICENSE            <- Open-source license if one is chosen
-├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
+├── LICENSE            <- Open-source license if one is chosen.
+├── Makefile           <- Makefile with convenience commands like `make data` or `make train`.
 ├── README.md          <- The top-level README for developers using this project.
+├── configs            <- Configuration files for the ml experiments.
 ├── data
 │   ├── sample         <- Data to be used for one-off testing (like images for augmentations).
 │   ├── interim        <- Intermediate data that has been transformed.
 │   ├── processed      <- The final, canonical data sets for modeling.
 │   └── raw            <- The original, immutable data dump.
 │
-├── docs               <- A default mkdocs project; see www.mkdocs.org for details
+├── docs               <- A default mkdocs project; see www.mkdocs.org for details.
 │
-├── models             <- Trained and serialized models, model predictions, or model summaries
+├── models             <- Trained and serialized models, model predictions, or model summaries.
 │
 ├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
 │                         the creator's initials, and a short `-` delimited description, e.g.
 │                         `1.0-jqp-initial-data-exploration`.
 │
 ├── pyproject.toml     <- Project configuration file with package metadata for
-│                         ml and configuration for tools like black
+│                         ml and configuration for tools like black.
 │
 ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
 │
 ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-│   └── figures        <- Generated graphics and figures to be used in reporting
+│   └── figures        <- Generated graphics and figures to be used in reporting.
 │
 ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-│                         generated with `pip freeze > requirements.txt`
+│                         generated with `pip freeze > requirements.txt`.
 │
-├── setup.cfg          <- Configuration file for flake8
+├── setup.cfg          <- Configuration file for flake8.
 │
 └── ml   <- Source code for use in this project.
     │
-    ├── __init__.py             <- Makes ml a Python module
+    ├── __init__.py              <- Makes ml a Python module.
     │
-    └──  config.py               <- Store useful variables and configuration
+    └──  config.py               <- Store useful variables and configuration.
 ```
 
 --------
