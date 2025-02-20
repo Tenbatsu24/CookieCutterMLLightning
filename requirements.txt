@@ -19,7 +19,7 @@ scikit-image
 einops
 opt_einsum
 wandb
+mkdocs
+-i https://download.pytorch.org/whl/cu126
 torch
 torchvision
-mkdocs
--e .
