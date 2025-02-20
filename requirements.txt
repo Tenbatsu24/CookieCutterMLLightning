@@ -1,0 +1,25 @@
+pip
+black
+flake8
+isort
+python-dotenv
+pre-commit
+nbautoexport
+typer
+loguru
+tqdm
+numpy==1.26.4
+ipython
+jupyterlab
+matplotlib
+notebook
+pandas
+scikit-learn
+scikit-image
+einops
+opt_einsum
+wandb
+torch
+torchvision
+mkdocs
+-e .
