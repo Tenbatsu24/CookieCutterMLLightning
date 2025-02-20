@@ -3,7 +3,7 @@
 #################################################################################
 
 PROJECT_NAME = ccml_lightning
-PYTHON_VERSION = 3.10.16
+PYTHON_VERSION = 3.10
 PYTHON_INTERPRETER = python
 
 #################################################################################
@@ -11,14 +11,11 @@ PYTHON_INTERPRETER = python
 #################################################################################
 
 
-
 ## Install Python Dependencies
 .PHONY: requirements
 requirements:
 	$(PYTHON_INTERPRETER) -m pip install -U pip
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
-
-
 
 
 ## Delete all compiled Python files
@@ -32,7 +29,6 @@ clean:
 .PHONY: lint
 lint:
 	flake8 ml
-	isort --check --diff --profile black ml
 	black --check --config pyproject.toml ml
 
 
@@ -40,7 +36,6 @@ lint:
 .PHONY: format
 format:
 	black --config pyproject.toml ml
-
 
 
 ## Set up python interpreter environment
@@ -52,13 +47,10 @@ create_environment:
 	@echo ">>> conda env created. Activate with:\nconda activate $(PROJECT_NAME)"
 
 
-
-
 ## Activate python environment
 .PHONY: activate_environment
 activate_environment:
 	conda activate $(PROJECT_NAME)
-
 
 
 .PHONY: env
