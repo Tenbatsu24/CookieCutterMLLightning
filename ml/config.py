@@ -1,4 +1,5 @@
 import os
+import sys
 
 from pathlib import Path
 
@@ -8,18 +9,49 @@ from loguru import logger
 # Load environment variables from .env file if it exists
 load_dotenv()
 
+PROJ_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _format_message(record):
+    # process record to generate
+    t = record["time"]
+    level = record["level"]
+
+    file = record["file"]
+    function = record["function"]
+    line = record["line"]
+
+    message = record["message"]
+
+    # escape tags in message, tags are "<some_tag>"
+    if function.startswith("<") and function.endswith(">"):
+        function = rf"\{function}"
+
+    message.replace("<", r"\<")
+
+    # strip the path to the project root and replace it with a dot for brevity in both file and message
+    file = str(file.path).replace(str(PROJ_ROOT), ".")
+    message = message.replace(str(PROJ_ROOT), ".")
+
+    return (
+        f"<green>{t:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+        f"<level>{level: <8}</level> | "
+        f"<cyan>{file}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>\n"
+    )
+
+
+logger.remove(0)
+
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135
 try:
     from tqdm import tqdm
 
-    logger.remove(0)
-    logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+    logger.add(lambda msg: tqdm.write(msg, end=""), format=_format_message, colorize=True)
 except ModuleNotFoundError:
-    pass
+    logger.add(sys.stderr, format=_format_message, colorize=True)
 
 # Paths
-PROJ_ROOT = Path(__file__).resolve().parents[1]
 logger.info(f"PROJ_ROOT path is: {PROJ_ROOT}")
 
 # Data directories
@@ -43,6 +75,9 @@ MODELS_DIR = os.getenv("MODELS_DIR", PROJ_ROOT / "models")
 REPORTS_DIR = os.getenv("REPORTS_DIR", PROJ_ROOT / "reports")
 FIGURES_DIR = REPORTS_DIR / "figures"
 
+LOGS_DIR = os.getenv("LOGS_DIR", PROJ_ROOT / "logs")
+logger.info(f"LOGS_DIR path is: {LOGS_DIR}")
+
 # ML Logging and Monitoring
 WANDB_ENTITY = os.getenv("WANDB_ENTITY", None)
 if WANDB_ENTITY is None:
@@ -64,6 +99,3 @@ if os.getenv("WANDB_MODE") == "disabled":
     # set WANDB_SILENT to true to disable logging
     os.environ["WANDB_SILENT"] = "true"
     logger.info("WandB is made silent.")
-
-LOGS_DIR = os.getenv("LOGS_DIR", PROJ_ROOT / "logs")
-logger.info(f"LOGS_DIR path is: {LOGS_DIR}")
