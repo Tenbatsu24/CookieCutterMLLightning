@@ -7,3 +7,10 @@ repos:
       - id: trailing-whitespace
       - id: pretty-format-json
         args: [ '--autofix' ]
+  - repo: local
+    hooks:
+      - id: black
+        name: black
+        language: system
+        entry: make format
+        pass_filenames: false

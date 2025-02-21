@@ -14,9 +14,9 @@ class SingletonRegistry:
 
     def get_class(self, type_of, name):
         if type_of not in self._registry:
-            raise ValueError(f'Unknown type {type_of}')
+            raise ValueError(f"Unknown type {type_of}")
         if name not in self._registry[type_of]:
-            raise ValueError(f'Unknown {type_of} {name}')
+            raise ValueError(f"Unknown {type_of} {name}")
         return self._registry[type_of][name]
 
     def get_registry(self):
