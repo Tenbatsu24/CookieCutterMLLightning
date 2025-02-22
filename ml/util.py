@@ -57,7 +57,9 @@ class RegistryStore:
         return register.get_class(name)
 
     def __str__(self):
-        return f"\nWarehouse:\n" + "\n".join([f"  {k}: {v}" for k, v in self._instances.items()])
+        return f"\n{self.__class__.__name__}:\n" + "\n".join(
+            [f"  {k}: {v}" for k, v in self._instances.items()]
+        )
 
 
 STORE = RegistryStore()

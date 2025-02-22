@@ -30,8 +30,8 @@ def _format_message(record):
     message.replace("<", r"\<")
 
     # strip the path to the project root and replace it with a dot for brevity in both file and message
-    file = str(file.path).replace(str(PROJ_ROOT), ".")
-    message = message.replace(str(PROJ_ROOT), ".")
+    file = str(file.path).replace(str(PROJ_ROOT), "$PROJECT_ROOT")
+    message = message.replace(str(PROJ_ROOT), "$PROJECT_ROOT")
 
     return (
         f"<green>{t:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
