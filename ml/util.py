@@ -19,7 +19,7 @@ class SingletonRegistry:
         return self._registry
 
     def __str__(self):
-        return f"\n".join([f"    {k}: {v}" for k, v in self._registry.items()])
+        return "\n" + f"\n".join([f"    {k}: {v}" for k, v in self._registry.items()])
 
 
 class RegistryStore:
@@ -31,7 +31,7 @@ class RegistryStore:
             self._instances[type_of] = SingletonRegistry()
         return self._instances[type_of]
 
-    def reg(self, type_of, name):
+    def reg(self, type_of: str, name: str):
         """
         Register a class with the registry
         :param type_of: the top level type of the class. it will be the first key in the registry
@@ -46,7 +46,7 @@ class RegistryStore:
 
         return inner
 
-    def get(self, type_of, name):
+    def get(self, type_of: str, name: str) -> type:
         """
         Get a class from the registry
         :param type_of: the top level type of the class
