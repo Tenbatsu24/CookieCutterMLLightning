@@ -35,6 +35,10 @@ class RegistryStore:
             self._instances[type_of] = SingletonRegistry()
         return self._instances[type_of]
 
+    def register(self, type_of: str, name: str, cls):
+        register = self.get_instance(type_of)
+        register.register(name, cls)
+
     def reg(self, type_of: str, name: str):
         """
         Register a class with the registry
@@ -44,8 +48,7 @@ class RegistryStore:
         """
 
         def inner(cls):
-            register = self.get_instance(type_of)
-            register.register(name, cls)
+            self.register(type_of, name, cls)
             return cls
 
         return inner
