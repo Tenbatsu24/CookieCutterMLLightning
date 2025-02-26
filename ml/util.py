@@ -3,13 +3,9 @@ DATA_TYPE: str = "data"
 
 
 class SingletonRegistry:
-    _instance = None
-    _registry = {}
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(SingletonRegistry, cls).__new__(cls)
-        return cls._instance
+    def __init__(self):
+        self._registry = {}
 
     def register(self, name, cls):
         self._registry[name] = cls
@@ -36,8 +32,7 @@ class RegistryStore:
         return self._instances[type_of]
 
     def register(self, type_of: str, name: str, cls):
-        register = self.get_instance(type_of)
-        register.register(name, cls)
+        self.get_instance(type_of).register(name, cls)
 
     def reg(self, type_of: str, name: str):
         """
