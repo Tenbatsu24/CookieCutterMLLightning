@@ -1,8 +1,6 @@
-from ml.util import STORE
+from .afa import AFA, FourierAFA
 
-TYPE_OF: str = "aug"
-
-
-@STORE.reg(TYPE_OF, "test")
-class AugTest:
-    pass
+__all__ = [
+    "AFA",
+    "FourierAFA",
+]
