@@ -1,3 +1,7 @@
+AUG_TYPE: str = "augmentation"
+DATA_TYPE: str = "data"
+
+
 class SingletonRegistry:
     _instance = None
     _registry = {}
