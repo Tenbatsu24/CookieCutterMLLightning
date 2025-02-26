@@ -4,6 +4,8 @@ from einops import rearrange, repeat
 
 from ml.util import STORE, AUG_TYPE
 
+__all__ = ["AFA", "FourierAFA"]
+
 
 @STORE.reg(AUG_TYPE, "afa")
 class AFA(torch.nn.Module):
