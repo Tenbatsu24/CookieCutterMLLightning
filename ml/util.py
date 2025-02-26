@@ -2,7 +2,7 @@ AUG_TYPE: str = "augmentation"
 DATA_TYPE: str = "data"
 
 
-class SingletonRegistry:
+class InstanceRegistry:
 
     def __init__(self):
         self._registry = {}
@@ -23,12 +23,17 @@ class SingletonRegistry:
 
 
 class RegistryStore:
-    def __init__(self):
-        self._instances = {}
+    _instance = None
+    _instances = {}
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(RegistryStore, cls).__new__(cls)
+        return cls._instance
 
     def get_instance(self, type_of):
         if type_of not in self._instances:
-            self._instances[type_of] = SingletonRegistry()
+            self._instances[type_of] = InstanceRegistry()
         return self._instances[type_of]
 
     def register(self, type_of: str, name: str, cls):
