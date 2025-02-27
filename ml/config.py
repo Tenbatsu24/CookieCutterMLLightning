@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 
@@ -28,44 +27,29 @@ def _format_message(record):
     if function.startswith("<") and function.endswith(">"):
         function = rf"\{function}"
 
-    message = message.replace("{", "{{").replace("}", "}}")
+    message.replace("<", r"\<")
 
     # strip the path to the project root and replace it with a dot for brevity in both file and message
-    file = str(file.path).replace(str(PROJ_ROOT), ".")
-    message = message.replace(str(PROJ_ROOT), ".")
+    file = str(file.path).replace(str(PROJ_ROOT), "$PROJECT_ROOT")
+    message = message.replace(str(PROJ_ROOT), "$PROJECT_ROOT")
 
-    final = (
-        f"<green>{t:YYYY-MM-DD HH:mm:ss.SSS!UTC}</green> | "
+    return (
+        f"<green>{t:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
         f"<level>{level: <8}</level> | "
-        f"<cyan>{file}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        f"<cyan>{file}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>\n"
     )
-
-    if extra := record["extra"]:
-        extra = json.dumps(extra)
-        extra = extra.replace("{", "{{").replace("}", "}}").replace('"', "")
-        final += f" | <level>{extra}</level>\n"
-    else:
-        final += "\n"
-
-    return final
 
 
 logger.remove(0)
-
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135
 try:
     from tqdm import tqdm
 
-    logger.add(
-        lambda msg: tqdm.write(msg, end=""), format=_format_message, colorize=True, level=LOG_LEVEL
-    )
+    logger.add(lambda msg: tqdm.write(msg, end=""), format=_format_message, colorize=True)
 except ModuleNotFoundError:
-    logger.add(sys.stderr, format=_format_message, colorize=True, level=LOG_LEVEL)
-
-logger.info(f"LOG_LEVEL is: {LOG_LEVEL}")
+    logger.add(sys.stderr, format=_format_message, colorize=True)
 
 # Paths
 logger.info(f"PROJ_ROOT path is: {PROJ_ROOT}")
