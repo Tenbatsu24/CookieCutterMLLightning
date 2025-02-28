@@ -1,5 +1,6 @@
 AUG_TYPE: str = "augmentation"
 DATA_TYPE: str = "data"
+MIX_TYPE: str = "mix"
 
 
 class InstanceRegistry:
