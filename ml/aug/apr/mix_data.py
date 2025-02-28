@@ -11,8 +11,11 @@ class APR(torch.nn.Module):
     def __call__(self, x):
         return mix_data(x, prob=self.p)
 
-    def __str__(self):
+    def __repr__(self):
         return f"APR(p={self.p})"
+
+    def __str__(self):
+        return self.__repr__()
 
 
 def mix_data(x, prob=0.6):
