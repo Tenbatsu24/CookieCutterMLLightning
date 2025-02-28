@@ -39,22 +39,22 @@ class Diffeo(torch.nn.Module):
 
     Returns:
         Tensor: Diffeo version of the input image(s).
-    """
+    """  # noqa: W605
 
-    def __init__(self, sT, rT, scut, rcut, cutmin, cutmax, alpha, stochastic=False):
+    def __init__(self, sT, rT, scut, rcut, cut_min, cut_max, alpha, stochastic=False):
         super().__init__()
 
         self.sT = sT
         self.rT = rT
         self.scut = scut
         self.rcut = rcut
-        self.cutmin = cutmin
-        self.cutmax = cutmax
+        self.cutmin = cut_min
+        self.cutmax = cut_max
         self.alpha = alpha
 
         self.stochastic = stochastic
         if self.stochastic:
-            self.cutmax_max = cutmax
+            self.cutmax_max = cut_max
             self.alpha_max = alpha
 
         self.betaT = torch.distributions.beta.Beta(
