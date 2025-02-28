@@ -20,7 +20,7 @@ class InstanceRegistry:
         return self._registry
 
     def __str__(self):
-        return "\n" + f"\n".join([f"    {k}: {v}" for k, v in self._registry.items()])
+        return "\n" + "\n".join([f"    {k}: {v}" for k, v in self._registry.items()])
 
 
 class RegistryStore:
