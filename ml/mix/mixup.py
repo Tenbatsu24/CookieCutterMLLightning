@@ -1,0 +1,77 @@
+import torch
+
+
+class RandomMixUp(torch.nn.Module):
+    """Randomly apply MixUp to the provided batch and targets.
+    The class implements the data augmentations as described in the paper
+    `"mixup: Beyond Empirical Risk Minimization" <https://arxiv.org/abs/1710.09412>`_.
+
+    Args:
+        num_classes (int): number of classes used for one-hot encoding.
+        p (float): probability of the batch being transformed. Default value is 0.5.
+        alpha (float): hyperparameter of the Beta distribution used for mixup.
+            Default value is 1.0.
+        inplace (bool): boolean to make this transform inplace. Default set to False.
+    """
+
+    def __init__(self, p: float = 0.5, alpha: float = 1.0, inplace: bool = True) -> None:
+        super().__init__()
+
+        if alpha <= 0:
+            raise ValueError("Alpha param can't be zero.")
+
+        self.p = p
+        self.alpha = alpha
+        self.inplace = inplace
+
+    @torch.no_grad()
+    def forward(self, batch, target):
+        """
+        Args:
+            batch (Tensor): Float tensor of size (B, C, H, W, [D])
+            target (Tensor): Integer tensor of size (B, C, [H, W], [D])
+
+        Returns:
+            Tensor: Randomly transformed batch.
+        """
+        if not batch.is_floating_point():
+            raise TypeError(f"Batch dtype should be a float tensor. Got {batch.dtype}.")
+        if target.dtype != torch.int64:
+            raise TypeError(f"Target dtype should be torch.int64. Got {target.dtype}")
+
+        if not self.inplace:
+            batch = batch.clone()
+            target = target.clone()
+
+        target = target.to(dtype=batch.dtype)
+
+        if torch.rand(1).item() >= self.p:
+            return batch, target
+
+        # It's faster to roll the batch by one instead of shuffling it to create image pairs
+        batch_rolled = batch.roll(1, 0)
+        target_rolled = target.roll(1, 0)
+
+        # Implemented as on mixup paper, page 3.
+        lambda_param = float(torch._sample_dirichlet(torch.tensor([self.alpha, self.alpha]))[0])
+        batch_rolled.mul_(1.0 - lambda_param)
+        batch.mul_(lambda_param).add_(batch_rolled)
+
+        target_rolled.mul_(1.0 - lambda_param)
+        target.mul_(lambda_param).add_(target_rolled)
+
+        return batch, target
+
+    def __repr__(self) -> str:
+        s = (
+            f"{self.__class__.__name__}("
+            f"num_classes={self.num_classes}"
+            f", p={self.p}"
+            f", alpha={self.alpha}"
+            f", inplace={self.inplace}"
+            f")"
+        )
+        return s
+
+    def __str__(self) -> str:
+        return self.__repr__()
