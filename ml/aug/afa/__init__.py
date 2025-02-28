@@ -1,4 +1,4 @@
-from .euclidean import AFA
+from .spatial import AFA
 from .fourier import FourierAFA
 
 from ml.util import STORE, AUG_TYPE
