@@ -18,7 +18,7 @@ def _format_message(record):
     t = record["time"]
     level = record["level"]
 
-    file = record["file"]
+    name = record["name"]
     function = record["function"]
     line = record["line"]
 
@@ -31,13 +31,12 @@ def _format_message(record):
     message = message.replace("{", "{{").replace("}", "}}")
 
     # strip the path to the project root and replace it with a dot for brevity in both file and message
-    file = str(file.path).replace(str(PROJ_ROOT), ".")
     message = message.replace(str(PROJ_ROOT), ".")
 
     final = (
         f"<green>{t:YYYY-MM-DD HH:mm:ss.SSS!UTC}</green> | "
         f"<level>{level: <8}</level> | "
-        f"<cyan>{file}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        f"<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
     )
 
     if extra := record["extra"]:
