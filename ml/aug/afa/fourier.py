@@ -1,7 +1,7 @@
 import torch
 
 
-class FourierAFA(torch.nn.Module):
+class ScaledNDimFourierAFA(torch.nn.Module):
     """
     FourierAFA applies a Fourier transform to the input tensor and adds a dirac noise at some uniformly
     chosen random coordinate in the fourier domain. The transformed image is then inverse transformed back.

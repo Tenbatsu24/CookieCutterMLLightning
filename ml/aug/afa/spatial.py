@@ -3,7 +3,7 @@ import torch
 from einops import rearrange, repeat
 
 
-class AFA(torch.nn.Module):
+class OrifAFA(torch.nn.Module):
 
     def __init__(self, img_size, min_str=5, mean_str=15, spatial_dims=2, fold_d_into_batch=False):
         super().__init__()
