@@ -1,58 +1,48 @@
+from loguru import logger
+
 import torch
 
 
 def init_optims_from_config(config, model):
     if config.turn_off_norm_weight_decay:
         custom_keys_weight_decay = [
-            (key, 0.) for key in ["class_token", "position_embedding", "relative_position_bias_table"]
+            (key, 0.0)
+            for key in ["class_token", "position_embedding", "relative_position_bias_table"]
         ]
-        if 'swin' in config.model:
-            custom_keys_weight_decay.append(('bias', 0.))
+
+        if hasattr(model, "custom_keys_weight_decay_filter"):
+            custom_keys_weight_decay.extend(
+                [(key, 0.0) for key in model.custom_keys_weight_decay_filter]
+            )
+
         params = set_weight_decay(
-            model, config.opt.params.weight_decay, 0., custom_keys_weight_decay=custom_keys_weight_decay
+            model,
+            config.opt.params.weight_decay,
+            0.0,
+            custom_keys_weight_decay=custom_keys_weight_decay,
         )
-        print('Turn Off Norm Weight Decay')
+        logger.info("Turn Off Norm Weight Decay")
         for param_groups in params:
-            print(len(param_groups['params']), param_groups['weight_decay'])
+            logger.info(
+                f"For param group with: {len(param_groups['params'])} params, WD: {param_groups['weight_decay']})"
+            )
     else:
         params = [p for p in model.parameters() if p.requires_grad]
 
     if hasattr(torch.optim, config.opt.type):
-        opt = getattr(torch.optim, config.opt.type)(
-            params,
-            **config.opt.params
-        )
+        opt = getattr(torch.optim, config.opt.type)(params, **config.opt.params)
     else:
-        raise NotImplementedError(f'Unknown optimizer: {config.opt.type}')
+        raise NotImplementedError(f"Unknown optimizer: {config.opt.type}")
 
-    lr_scheduler = []
-    for s, p, i in zip(config.lr_scheduler.type, config.lr_scheduler.params, config.lr_scheduler.interval):
-        if hasattr(torch.optim.lr_scheduler, s):
-            lr_scheduler.append(
-                {
-                    'scheduler': getattr(torch.optim.lr_scheduler, s)(opt, **p),
-                    'interval': i,
-                    'frequency': 1
-                }
-            )
-        else:
-            from .lr_scheduler import get_cosine_schedule_with_warmup
-            lr_scheduler.append(
-                {
-                    'scheduler': get_cosine_schedule_with_warmup(opt, **p),
-                    'interval': i,
-                    'frequency': 1
-                }
-            )
-    return [opt], lr_scheduler
+    return [opt]
 
 
 def set_weight_decay(
-        model,
-        weight_decay,
-        norm_weight_decay=None,
-        norm_classes=None,
-        custom_keys_weight_decay=None,
+    model,
+    weight_decay,
+    norm_weight_decay=None,
+    norm_classes=None,
+    custom_keys_weight_decay=None,
 ):
     if not norm_classes:
         norm_classes = [
@@ -109,17 +99,19 @@ def set_weight_decay(
     return param_groups
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from ml.model.image_classification import get_model
 
     _custom_keys_weight_decay = [
-        (key, 0.) for key in ["class_token", "position_embedding", "relative_position_bias_table"]
+        (key, 0.0) for key in ["class_token", "position_embedding", "relative_position_bias_table"]
     ]
-    _custom_keys_weight_decay.append(('bias', 0.))
+    _custom_keys_weight_decay.append(("bias", 0.0))
 
-    _model = get_model('c', 'swin_tiny')(num_classes=1000)
+    _model = get_model("c", "swin_tiny")(num_classes=1000)
 
-    for _param_groups in set_weight_decay(_model, 2e-5, 0., custom_keys_weight_decay=_custom_keys_weight_decay):
-        print(len(_param_groups['params']), _param_groups['weight_decay'])
+    for _param_groups in set_weight_decay(
+        _model, 2e-5, 0.0, custom_keys_weight_decay=_custom_keys_weight_decay
+    ):
+        print(len(_param_groups["params"]), _param_groups["weight_decay"])
 
     print(_model)
