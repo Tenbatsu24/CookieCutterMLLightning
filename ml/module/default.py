@@ -85,7 +85,7 @@ class Module(torch.nn.Module):
         opts, group_names = init_optims_from_config(self.config, self.model)
 
         scheduler = Scheduler()
-        for key, sched in self.config.scheduler.items():
+        for key, sched in self.config.scheduler:
 
             if key == "lr":
                 for group_name in group_names:
