@@ -186,7 +186,7 @@ if __name__ == "__main__":
             "name": "c10",
         },
         "batch_size": 128,
-        "run_name": "test_run-sam",
+        "run_name": "c10",
         "run_id": None,
         "pl": {
             "checkpoint": {"monitor": "val/acc", "mode": "max"},
@@ -212,10 +212,10 @@ if __name__ == "__main__":
             ("weight_decay", "CosSched(2e-5, 1e-4)"),
         ],
         "opt": {
-            "type": "SAM",  # SGD
-            "base_type": "SGD",
+            "type": "SGD",
+            # "base_type": "SGD",
             "params": {
-                "rho": 0.5, "adaptive": True,
+                # "rho": 0.05, "adaptive": True,
                 "lr": 0.1, "momentum": 0.9, "weight_decay": 2e-5, "nesterov": True
             },
         },
