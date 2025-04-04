@@ -1,5 +1,7 @@
 import torch
 
+from torchmetrics.functional.classification import multiclass_accuracy
+
 from ml.loss import get_loss
 from ml.optim import init_optims_from_config
 from ml.scheduling import Schedule, Scheduler
@@ -16,8 +18,8 @@ class Module(torch.nn.Module):
         super().__init__()
         self.config = config
 
-        self.before_batch_train = self.make_before_batch_train(normalisation)
-        self.before_batch_val = normalisation
+        self.before_batch_train = self.make_before_batch_train()
+        self.normalisation = normalisation
 
         self.model = self.make_model()
 
@@ -25,11 +27,10 @@ class Module(torch.nn.Module):
 
         self.criterion = self.make_criterion()
 
-    def make_before_batch_train(self, normalisation):
+    def make_before_batch_train(self):
         steps = []
         if MIX_TYPE in self.config:
             steps.append(STORE.get(MIX_TYPE, self.config.mix.type)(self.config.mix.params))
-        steps.append(normalisation)
         return torch.nn.Sequential(*steps)
 
     def forward(self, x):
@@ -44,25 +45,27 @@ class Module(torch.nn.Module):
         """
         batch = self.before_batch_train(batch)
         x, y = batch
-        y_hat = self.model(x)
+        y_hat = self.model(self.normalisation(x))
         loss = self.criterion(y_hat, y)
-        return loss, {"loss": loss.item()}
+        return loss, {"train/acc": multiclass_accuracy(y_hat, y, y_hat.shape[1])}
 
     def val_step(self, batch, _):
         """
         Validation step. This method should be overridden by subclasses.
         """
-        batch = self.before_batch_val(batch)
         x, y = batch
-        y_hat = self.model(x)
+        y_hat = self.model(self.normalisation(x))
         loss = self.criterion(y_hat, y)
-        return loss, {"loss": loss.item()}
+        return loss, {"val/acc": multiclass_accuracy(y_hat, y, y_hat.shape[1])}
 
-    def test_step(self, batch, batch_idx):
+    def test_step(self, batch, _):
         """
         Test step. This method should be overridden by subclasses.
         """
-        return self.val_step(batch, batch_idx)
+        x, y = batch
+        y_hat = self.model(self.normalisation(x))
+        loss = self.criterion(y_hat, y)
+        return loss, {"test/acc": multiclass_accuracy(y_hat, y, y_hat.shape[1])}
 
     def get_optimizers(self):
         """
@@ -75,27 +78,29 @@ class Module(torch.nn.Module):
         Create the model.
         :return:
         """
-        return STORE.get(MODEL_TYPE, self.config.model.type)(self.config.model.params)
+        return STORE.get(MODEL_TYPE, self.config.model.type)(**self.config.model.params)
 
     def make_opt_sched(self):
         """
         Create the optimisers.
         :return:
         """
-        opts, group_names = init_optims_from_config(self.config, self.model)
+        opt, group_names = init_optims_from_config(self.config, self.model)
 
         scheduler = Scheduler()
         for key, sched in self.config.scheduler:
 
             if key == "lr":
-                for group_name in group_names:
-                    scheduler.add(opts[group_name], key, Schedule.parse(sched))
+                for group_num, group_name in enumerate(group_names):
+                    scheduler.add(opt.param_groups[group_num], key, Schedule.parse(sched))
 
-            if key == "wd":
-                for group_name in filter(lambda x: x == "other", group_names):
-                    scheduler.add(opts[group_name], key, Schedule.parse(sched))
+            if key == "weight_decay":
+                for group_num, group_name in filter(
+                    lambda x: x[1] == "other", enumerate(group_names)
+                ):
+                    scheduler.add(opt.param_groups[group_num], key, Schedule.parse(sched))
 
-        return opts, scheduler
+        return [opt], scheduler
 
     def make_criterion(self):
         """
