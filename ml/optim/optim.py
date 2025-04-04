@@ -6,41 +6,37 @@ import ml.optim.custom.optim as custom_optim
 
 
 def init_optims_from_config(config, model):
-    if config.opt.turn_off_norm_weight_decay:
-        custom_keys_weight_decay = [
-            (key, 0.0)
-            for key in ["class_token", "position_embedding", "relative_position_bias_table"]
-        ]
-        if hasattr(model, "custom_keys_weight_decay_filter"):
-            custom_keys_weight_decay.extend(
-                [(key, 0.0) for key in model.custom_keys_weight_decay_filter]
-            )
-
-        group_names, params = set_weight_decay(
-            model,
-            config.opt.params.weight_decay,
-            0.0,
-            custom_keys_weight_decay=custom_keys_weight_decay,
+    custom_keys_weight_decay = [
+        (key, 0.0) for key in ["class_token", "position_embedding", "relative_position_bias_table"]
+    ]
+    if hasattr(model, "custom_keys_weight_decay_filter"):
+        custom_keys_weight_decay.extend(
+            [(key, 0.0) for key in model.custom_keys_weight_decay_filter]
         )
-        logger.info("Turn Off Norm Weight Decay")
-        for group_name, param_groups in zip(group_names, params):
-            logger.info(
-                f"{group_name}: "
-                f"{len(param_groups['params'])} parameters have weight decay: {param_groups['weight_decay']}"
-            )
-    else:
-        group_names = ["other"]
-        params = [p for p in model.parameters() if p.requires_grad]
 
-    if hasattr(torch.optim, config.opt.name):
-        opt = getattr(torch.optim, config.opt.name)(params, **config.opt.params)
-    elif hasattr(custom_optim, config.opt.name) and config.opt.name != "SAM":
-        opt = getattr(custom_optim, config.opt.name)(params, **config.opt.params)
-    elif hasattr(custom_optim, config.opt.name):
-        base_optim_cls = getattr(torch.optim, config.opt.name)
-        config.opt.params.base_optim = base_optim_cls
+    group_names, params = set_weight_decay(
+        model,
+        config.opt.params.weight_decay,
+        0.0,
+        custom_keys_weight_decay=custom_keys_weight_decay,
+    )
+    logger.info("Turning Off Norm Weight Decay")
+    for group_name, param_groups in zip(group_names, params):
+        logger.info(
+            f"{group_name}: "
+            f"{len(param_groups['params'])} parameters have weight decay: {param_groups['weight_decay']}"
+        )
 
-        opt = getattr(custom_optim, config.opt.name)(params, **config.opt.params)
+    if hasattr(torch.optim, config.opt.type):
+        opt = getattr(torch.optim, config.opt.type)(params, **config.opt.params)
+    elif hasattr(custom_optim, config.opt.type) and config.opt.type != "SAM":
+        opt = getattr(custom_optim, config.opt.type)(params, **config.opt.params)
+    elif hasattr(custom_optim, config.opt.type) and config.opt.type == "SAM":
+        base_optim_cls = getattr(torch.optim, config.opt.type)
+
+        opt = getattr(custom_optim, config.opt.type)(
+            params, base_optim=base_optim_cls, **config.opt.params
+        )
     else:
         raise NotImplementedError(f"Unknown optimizer: {config.opt.type}")
 
@@ -147,14 +143,13 @@ if __name__ == "__main__":
     model_info = torchinfo.summary(bleh_model, verbose=0)
     print(model_info)
 
-    config = ConfigDict(
+    _config = ConfigDict(
         {
             "opt": {
-                "name": "Adam",
+                "type": "Adam",
                 "params": {"lr": 0.001, "weight_decay": 0.01},
-                "turn_off_norm_weight_decay": True,
             }
         }
     )
 
-    init_optims_from_config(config, bleh_model)
+    init_optims_from_config(_config, bleh_model)
