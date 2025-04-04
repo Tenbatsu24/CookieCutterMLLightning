@@ -96,7 +96,7 @@ logger.info(f"LOGS_DIR path is: {LOGS_DIR}")
 # ML Logging and Monitoring
 WANDB_ENTITY = os.getenv("WANDB_ENTITY", None)
 if WANDB_ENTITY is None:
-    logger.info("WANDB_ENTITY is not set. This will log to the default entity.")
+    logger.warning("WANDB_ENTITY is not set. This will log to the default entity.")
 else:
     logger.info(f"WANDB_ENTITY is: {WANDB_ENTITY}")
 
