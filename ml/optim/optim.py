@@ -32,7 +32,7 @@ def init_optims_from_config(config, model):
     elif hasattr(custom_optim, config.opt.type) and config.opt.type != "SAM":
         opt = getattr(custom_optim, config.opt.type)(params, **config.opt.params)
     elif hasattr(custom_optim, config.opt.type) and config.opt.type == "SAM":
-        base_optim_cls = getattr(torch.optim, config.opt.type)
+        base_optim_cls = getattr(torch.optim, config.opt.base_type)
 
         opt = getattr(custom_optim, config.opt.type)(
             params, base_optim=base_optim_cls, **config.opt.params
@@ -40,7 +40,7 @@ def init_optims_from_config(config, model):
     else:
         raise NotImplementedError(f"Unknown optimizer: {config.opt.type}")
 
-    return [opt], group_names
+    return opt, group_names
 
 
 def set_weight_decay(
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     )
     # use torchinfo to get the model summary
     model_info = torchinfo.summary(bleh_model, verbose=0)
-    print(model_info)
+    logger.info("\n" + str(model_info))
 
     _config = ConfigDict(
         {
