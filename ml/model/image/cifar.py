@@ -77,7 +77,7 @@ class ResNet(nn.Module):
         self,
         block,
         num_blocks,
-        num_channels=3,
+        in_channels=3,
         num_classes=10,
         init_stride=1,
         linear_bias=True,
@@ -91,7 +91,7 @@ class ResNet(nn.Module):
         self.bn_affine = bn_affine
 
         self.conv1 = nn.Conv2d(
-            num_channels, 64, kernel_size=3, stride=init_stride, padding=1, bias=False
+            in_channels, 64, kernel_size=3, stride=init_stride, padding=1, bias=False
         )
         self.bn1 = nn.BatchNorm2d(64, affine=self.bn_affine)
         self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
@@ -130,7 +130,7 @@ class ResNet(nn.Module):
 class ResNet18(ResNet):
     def __init__(
         self,
-        num_channels=3,
+        in_channels=3,
         num_classes=10,
         init_stride=1,
         linear_bias=True,
@@ -141,7 +141,7 @@ class ResNet18(ResNet):
         super(ResNet18, self).__init__(
             BasicBlock,
             [2, 2, 2, 2],
-            num_channels=num_channels,
+            in_channels=in_channels,
             num_classes=num_classes,
             init_stride=init_stride,
             linear_bias=linear_bias,
@@ -203,7 +203,15 @@ class CifarResNeXt(nn.Module):
     """ResNext optimized for the Cifar dataset, as specified in https://arxiv.org/pdf/1611.05431.pdf."""
 
     def __init__(
-        self, block, depth, cardinality, base_width, num_classes, init_stride, return_latent=False
+        self,
+        block,
+        depth,
+        cardinality,
+        base_width,
+        in_channels,
+        num_classes,
+        init_stride,
+        return_latent=False,
     ):
         super(CifarResNeXt, self).__init__()
 
@@ -215,7 +223,7 @@ class CifarResNeXt(nn.Module):
         self.base_width = base_width
         self.num_classes = num_classes
 
-        self.conv_1_3x3 = nn.Conv2d(3, 64, 3, init_stride, 1, bias=False)
+        self.conv_1_3x3 = nn.Conv2d(in_channels, 64, 3, init_stride, 1, bias=False)
         self.bn_1 = nn.BatchNorm2d(64)
 
         self.inplanes = 64
@@ -279,12 +287,13 @@ class CifarResNeXt(nn.Module):
 
 class ResNeXt29(CifarResNeXt):
 
-    def __init__(self, num_classes=10, init_stride=1, return_latent=False):
+    def __init__(self, in_channels=3, num_classes=10, init_stride=1, return_latent=False):
         super(ResNeXt29, self).__init__(
             ResNeXtBottleneck,
             29,
             4,
             32,
+            in_channels,
             num_classes,
             init_stride=init_stride,
             return_latent=return_latent,
