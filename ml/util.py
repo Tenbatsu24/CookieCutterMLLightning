@@ -1,7 +1,11 @@
+from importlib import import_module
+
 MODEL_TYPE: str = "model"
-AUG_TYPE: str = "augmentation"
+AUG_TYPE: str = "aug"
 DATA_TYPE: str = "data"
 MIX_TYPE: str = "mix"
+
+STORE_TYPES = [MODEL_TYPE, AUG_TYPE, DATA_TYPE, MIX_TYPE]
 
 
 class InstanceRegistry:
@@ -62,6 +66,7 @@ class RegistryStore:
         :param name: the name of the class
         :return: class
         """
+        # check if there is a package with the name type_of. if it exists import * from it
         register = self.get_instance(type_of)
         return register.get_class(name)
 
@@ -72,3 +77,10 @@ class RegistryStore:
 
 
 STORE = RegistryStore()
+
+## import all the modules in the store types such that they are registered
+pkg = "ml"
+for name in STORE_TYPES:
+    mod = import_module(f".{name}", package=pkg)
+
+del pkg, name, mod
