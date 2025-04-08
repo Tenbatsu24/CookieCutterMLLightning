@@ -1,3 +1,3 @@
-from .base import BaseTrainer, SAMTrainer
+from .base import BaseTrainer
 
-__all__ = ["BaseTrainer", "SAMTrainer"]
+__all__ = ["BaseTrainer"]

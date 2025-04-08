@@ -1,105 +1,156 @@
 from typing import Union, Sequence
 
 import torch
-import torch.nn as nn
 import lightning as pl
-from lightning import Callback
+import torchmetrics
 
+from lightning import Callback
 from ml_collections import ConfigDict
 
-from ml.module.default import Module
+from ml.loss import get_loss
+from ml.metric import get_metric
+from ml.optim import init_optims_from_config
+from ml.scheduling import Schedule, Scheduler
+from ml.util import STORE, MODEL_TYPE, MIX_TYPE, AUG_TYPE
 
 
 class BaseTrainer(pl.LightningModule):
-    def __init__(self, config: ConfigDict, module: Module):
+    def __init__(self, config: ConfigDict, normalisation: torch.nn.Module):
         super().__init__()
 
         # initialise the config
         self.config = config
 
         # initialise the module
-        self.module = module
+        self.before_batch_train = self.make_before_batch_train()
+        self.normalisation = normalisation
+
+        self.model = self.make_model()
+
+        self.optims, self.scheduler = self.make_opt_sched()
+
+        self.criterion = self.make_criterion()
+
+        metrics = self.make_metrics()
+        metrics = torchmetrics.MetricCollection(metrics)
+        self.train_metrics = metrics.clone(prefix="train/")
+        self.val_metrics = metrics.clone(prefix="val/")
+        self.test_metrics = metrics.clone(prefix="test/")
 
         self.save_hyperparameters(self.config.to_dict())
 
+    def make_before_batch_train(self):
+        steps = []
+
+        if AUG_TYPE in self.config:
+            for aug in self.config.__getattr__(AUG_TYPE):
+                steps.append(STORE.get(AUG_TYPE, aug.type)(**aug.params))
+
+        if MIX_TYPE in self.config:
+            mix = self.config.__getattr__(MIX_TYPE)
+            steps.append(STORE.get(MIX_TYPE, mix.type)(**mix.params))
+
+        return torch.nn.Sequential(*steps)
+
+    def make_model(self):
+        """
+        Create the model.
+        :return:
+        """
+        return STORE.get(MODEL_TYPE, self.config.model.type)(**self.config.model.params)
+
+    def make_opt_sched(self):
+        """
+        Create the optimisers.
+        :return:
+        """
+        opt, group_names = init_optims_from_config(self.config, self.model)
+
+        scheduler = Scheduler()
+        for key, sched in self.config.scheduler:
+
+            if key == "lr":
+                for group_num, group_name in enumerate(group_names):
+                    scheduler.add(opt.param_groups[group_num], key, Schedule.parse(sched))
+
+            if key == "weight_decay":
+                for group_num, group_name in filter(
+                    lambda x: x[1] == "other", enumerate(group_names)
+                ):
+                    scheduler.add(opt.param_groups[group_num], key, Schedule.parse(sched))
+
+        return [opt], scheduler
+
+    def make_criterion(self):
+        """
+        Create the loss function.
+        :return:
+        """
+        return get_loss(self.config.loss.type)(**self.config.loss.params)
+
+    def make_metrics(self):
+        """
+        Create the metrics.
+        :return:
+        """
+        metrics = {
+            short_name: get_metric(metric_dict.type)(**metric_dict.params)
+            for short_name, metric_dict in self.config.metrics.items()
+        }
+        return metrics
+
     def forward(self, x):
-        return self.module(x)
+        return self.model(x)
 
     def training_step(self, batch, batch_idx):
-        loss, metrics_dict = self.module.train_step(batch, batch_idx)
-        self.log("train/loss", loss, prog_bar=True, on_epoch=False, on_step=True)
-        self.log_dict(metrics_dict, prog_bar=False, on_epoch=False, on_step=True)
+        batch = self.before_batch_train(batch)
+        x, y = batch
+        y_hat = self.model(self.normalisation(x))
+        loss = self.criterion(y_hat, y)
+
+        self.log("train/loss", loss, prog_bar=False, on_epoch=False, on_step=True)
+        batch_metrics = self.train_metrics(y_hat, y)
+
+        self.log_dict(batch_metrics, prog_bar=True, on_epoch=False, on_step=True)
+
         return loss
+
+    def on_train_epoch_end(self):
+        self.train_metrics.reset()
 
     def validation_step(self, batch, batch_idx):
-        loss, metrics_dict = self.module.val_step(batch, batch_idx)
+        x, y = batch
+        y_hat = self.model(self.normalisation(x))
+        loss = self.criterion(y_hat, y)
+
         self.log("val/loss", loss, prog_bar=True, on_epoch=True, on_step=False)
-        self.log_dict(metrics_dict, prog_bar=False, on_epoch=True, on_step=False)
+        self.val_metrics.update(y_hat, y)
+
         return loss
+
+    def on_validation_epoch_end(self):
+        self.log_dict(self.val_metrics.compute(), prog_bar=True, on_epoch=True, on_step=False)
+        self.val_metrics.reset()
 
     def test_step(self, batch, batch_idx):
-        loss, metrics_dict = self.module.test_step(batch, batch_idx)
+        x, y = batch
+        y_hat = self.model(self.normalisation(x))
+        loss = self.criterion(y_hat, y)
+
         self.log("test/loss", loss, prog_bar=True, on_epoch=True, on_step=False)
-        self.log_dict(metrics_dict, prog_bar=False, on_epoch=True, on_step=False)
+        self.test_metrics.update(y_hat, y)
+
         return loss
 
+    def on_test_epoch_end(self) -> None:
+        self.log_dict(self.test_metrics.compute(), prog_bar=True, on_epoch=True, on_step=False)
+        self.test_metrics.reset()
+
     def configure_optimizers(self):
-        return self.module.get_optimizers(), []
+        return self.optims, []
 
     def configure_callbacks(self) -> Union[Sequence[Callback], Callback]:
         """
         Override this method to configure callbacks for the trainer.
         """
-        return self.module.get_custom_callbacks()
-
-
-class SAMTrainer(BaseTrainer):
-
-    def __init__(self, config, module):
-        super().__init__(config, module)
-
-        self.automatic_optimization = False
-
-    @classmethod
-    def set_bn_eval(cls, m):
-        if isinstance(m, nn.modules.batchnorm._BatchNorm):
-            m.eval()
-
-    @classmethod
-    def set_bn_train(cls, m):
-        if isinstance(m, nn.modules.batchnorm._BatchNorm):
-            m.train()
-
-    def training_step(self, batch, batch_idx):
-        optimizer = self.optimizers()
-
-        self.module.apply(self.set_bn_train)
-        loss_1, _ = self.module.train_step(batch, batch_idx)
-
-        self.manual_backward(loss_1)
-        self.clip_gradients(optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
-        optimizer.first_step(zero_grad=True)
-
-        # second forward-backward pass
-        self.module.apply(self.set_bn_eval)
-        loss_2, metrics_dict = self.module.train_step(batch, batch_idx)
-
-        self.log("train/loss", loss_2, prog_bar=True, on_epoch=False, on_step=True)
-        self.log(
-            "train/sharpness",
-            torch.abs(loss_1 - loss_2),
-            prog_bar=False,
-            on_epoch=False,
-            on_step=True,
-        )
-        self.log_dict(metrics_dict, prog_bar=False, on_epoch=False, on_step=True)
-
-        self.trainer.fit_loop.epoch_loop.manual_optimization._on_before_step()
-
-        self.manual_backward(loss_2)
-        self.clip_gradients(optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
-        optimizer.second_step(zero_grad=True)
-
-        self.trainer.fit_loop.epoch_loop.manual_optimization._on_after_step()
-
-        return loss_1
+        return [self.scheduler]
