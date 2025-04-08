@@ -3,8 +3,7 @@ import torch.nn.functional as F
 
 from torch.nn import Module, ModuleList, Linear, Dropout, LayerNorm, Identity, Parameter, init
 
-from ml.layers import MemEffAttention
-from ml.model.image.compact_transformers.utils.stochastic_depth import DropPath
+from ml.layers import MemEffAttention, DropPath
 
 
 class TransformerEncoderLayer(Module):
