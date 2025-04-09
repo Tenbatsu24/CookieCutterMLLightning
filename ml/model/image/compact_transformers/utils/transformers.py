@@ -63,9 +63,6 @@ class TransformerClassifier(Module):
     ):
         super().__init__()
         assert not (
-            patch_latent and not seq_pool
-        ), "Patch latent and not sequence pooling cannot be used at the same time."
-        assert not (
             image_latent and patch_latent
         ), "Image latent and patch latent cannot be used at the same time."
         positional_embedding = (
@@ -125,10 +122,7 @@ class TransformerClassifier(Module):
         )
         self.norm = LayerNorm(embedding_dim)
 
-        if not (image_latent or patch_latent):
-            assert (
-                num_classes is not None
-            ), "num_classes must be specified if image_latent and patch_latent are False."
+        if num_classes is not None:
             self.fc = Linear(embedding_dim, num_classes)
         else:
             self.fc = None
@@ -136,6 +130,11 @@ class TransformerClassifier(Module):
         self.apply(self.init_weight)
 
     def forward(self, x, return_latent=False):
+        if return_latent:
+            assert (
+                self.image_latent or self.patch_latent
+            ), "return_latent=True is only supported when image_latent or patch_latent is True."
+
         if self.positional_emb is None and x.size(1) < self.sequence_length:
             x = F.pad(x, (0, 0, 0, self.n_channels - x.size(1)), mode="constant", value=0)
 
@@ -169,10 +168,23 @@ class TransformerClassifier(Module):
                 else:
                     return out
         else:
-            if not self.seq_pool:
-                return x[:, 1:]
+            if self.seq_pool:
+                patch_latent = x
+                image_latent = torch.matmul(
+                    F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x
+                ).squeeze(-2)
             else:
-                return x
+                patch_latent = x[:, 1:]
+                image_latent = x[:, 0]
+
+            if self.fc is None:
+                return patch_latent
+            else:
+                out = self.fc(image_latent)
+                if return_latent:
+                    return out, patch_latent
+                else:
+                    return out
 
     @staticmethod
     def init_weight(m):
@@ -192,47 +204,3 @@ class TransformerClassifier(Module):
         pe[:, 0::2] = torch.sin(pe[:, 0::2])
         pe[:, 1::2] = torch.cos(pe[:, 1::2])
         return pe.unsqueeze(0)
-
-
-if __name__ == "__main__":
-    import torch
-    from ml.model.image.compact_transformers.utils.tokenizer import Tokenizer
-
-    tokenizer = Tokenizer(
-        n_input_channels=3,
-        n_output_channels=768,
-        kernel_size=16,
-        stride=16,
-        padding=0,
-        max_pool=False,
-        activation=None,
-        n_conv_layers=1,
-        conv_bias=True,
-    )
-
-    model = TransformerClassifier(
-        embedding_dim=768,
-        num_layers=12,
-        num_heads=12,
-        mlp_ratio=4.0,
-        num_classes=1000,
-        dropout=0.1,
-        attention_dropout=0.1,
-        stochastic_depth=0.1,
-        positional_embedding="learnable",
-        sequence_length=tokenizer.sequence_length(3, 224, 224),
-        seq_pool=True,
-        patch_latent=False,
-        image_latent=False,
-    )
-
-    tokenizer.cuda()
-    model.cuda()
-
-    _x = torch.randn(1, 3, 224, 224, device="cuda")
-
-    _x = tokenizer(_x)
-    print(_x.shape)
-
-    _out, _latent = model(_x, return_latent=True)
-    print(_out.shape, _latent.shape)
