@@ -1,4 +1,4 @@
-# ccml_lightning
+# Cookie Cutter ML Lightning
 
 <a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
@@ -92,8 +92,6 @@ echo "LOGS_DIR=" >> .env  # Directory to the logs
 │   ├── interim        <- Intermediate data that has been transformed.
 │   ├── processed      <- The final, canonical data sets for modeling.
 │   └── raw            <- The original, immutable data dump.
-│
-├── docs               <- A default mkdocs project; see www.mkdocs.org for details.
 │
 ├── models             <- Trained and serialized models, model predictions, or model summaries.
 │
