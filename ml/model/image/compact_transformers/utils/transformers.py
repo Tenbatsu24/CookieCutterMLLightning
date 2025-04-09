@@ -130,10 +130,12 @@ class TransformerClassifier(Module):
                 num_classes is not None
             ), "num_classes must be specified if image_latent and patch_latent are False."
             self.fc = Linear(embedding_dim, num_classes)
+        else:
+            self.fc = None
 
         self.apply(self.init_weight)
 
-    def forward(self, x):
+    def forward(self, x, return_latent=False):
         if self.positional_emb is None and x.size(1) < self.sequence_length:
             x = F.pad(x, (0, 0, 0, self.n_channels - x.size(1)), mode="constant", value=0)
 
@@ -152,24 +154,25 @@ class TransformerClassifier(Module):
 
         if not self.patch_latent:
             if self.seq_pool:
-                latent = torch.matmul(
+                image_latent = torch.matmul(
                     F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x
                 ).squeeze(-2)
             else:
-                latent = x[:, 0]
+                image_latent = x[:, 0]
 
-            if not self.image_latent:
-                out = self.fc(latent)
+            if self.fc is None:
+                return image_latent
             else:
-                out = None
+                out = self.fc(image_latent)
+                if return_latent:
+                    return out, image_latent
+                else:
+                    return out
         else:
-            out = None
             if not self.seq_pool:
-                latent = x[:, 1:]
+                return x[:, 1:]
             else:
-                latent = x
-
-        return out, latent
+                return x
 
     @staticmethod
     def init_weight(m):
@@ -212,24 +215,24 @@ if __name__ == "__main__":
         num_layers=12,
         num_heads=12,
         mlp_ratio=4.0,
-        num_classes=None,
+        num_classes=1000,
         dropout=0.1,
         attention_dropout=0.1,
         stochastic_depth=0.1,
         positional_embedding="learnable",
         sequence_length=tokenizer.sequence_length(3, 224, 224),
         seq_pool=True,
-        patch_latent=True,
+        patch_latent=False,
         image_latent=False,
     )
 
     tokenizer.cuda()
     model.cuda()
 
-    x = torch.randn(1, 3, 224, 224, device="cuda")
+    _x = torch.randn(1, 3, 224, 224, device="cuda")
 
-    x = tokenizer(x)
-    print(x.shape)
+    _x = tokenizer(_x)
+    print(_x.shape)
 
-    x = model(x)
-    print(x.shape)
+    _out, _latent = model(_x, return_latent=True)
+    print(_out.shape, _latent.shape)

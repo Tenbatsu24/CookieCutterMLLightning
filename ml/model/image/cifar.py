@@ -82,7 +82,6 @@ class ResNet(nn.Module):
         init_stride=1,
         linear_bias=True,
         bn_affine=True,
-        return_latent=False,
     ):
         super(ResNet, self).__init__()
         self.in_planes = 64
@@ -99,11 +98,12 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
 
-        self.return_latent = return_latent
         self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
 
-        if not self.return_latent:
-            self.linear = nn.Linear(512 * block.expansion, num_classes, bias=self.linear_bias)
+        if num_classes is not None:
+            self.classifier = nn.Linear(512 * block.expansion, num_classes, bias=self.linear_bias)
+        else:
+            self.classifier = None
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -113,7 +113,7 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, return_latent=False):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
@@ -122,12 +122,15 @@ class ResNet(nn.Module):
         out = self.avg_pool(out)
         latent = out.view(out.size(0), -1)
 
-        if not self.return_latent:
-            out = self.linear(latent)
+        if self.classifier is not None:
+            out = self.classifier(latent)
         else:
-            out = None
+            return latent
 
-        return out, latent
+        if return_latent:
+            return out, latent
+        else:
+            return out
 
 
 class ResNet18(ResNet):
@@ -138,7 +141,6 @@ class ResNet18(ResNet):
         init_stride=1,
         linear_bias=True,
         bn_affine=True,
-        return_latent=False,
         **kwargs,
     ):
         super(ResNet18, self).__init__(
@@ -149,7 +151,6 @@ class ResNet18(ResNet):
             init_stride=init_stride,
             linear_bias=linear_bias,
             bn_affine=bn_affine,
-            return_latent=return_latent,
         )
 
 
@@ -214,7 +215,6 @@ class CifarResNeXt(nn.Module):
         in_channels,
         num_classes,
         init_stride,
-        return_latent=False,
     ):
         super(CifarResNeXt, self).__init__()
 
@@ -234,12 +234,12 @@ class CifarResNeXt(nn.Module):
         self.stage_2 = self._make_layer(block, 128, layer_blocks, 2)
         self.stage_3 = self._make_layer(block, 256, layer_blocks, 2)
 
-        self.return_latent = return_latent
-
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
-        if not self.return_latent:
+        if num_classes is not None:
             self.classifier = nn.Linear(256 * block.expansion, num_classes)
+        else:
+            self.classifier = None
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -275,7 +275,7 @@ class CifarResNeXt(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, return_latent=False):
         x = self.conv_1_3x3(x)
         x = F.relu(self.bn_1(x), inplace=True)
         x = self.stage_1(x)
@@ -284,12 +284,15 @@ class CifarResNeXt(nn.Module):
         x = self.avgpool(x)
         latent = x.view(x.size(0), -1)
 
-        if not self.return_latent:
+        if self.classifier is not None:
             out = self.classifier(latent)
         else:
-            out = None
+            return latent
 
-        return out, latent
+        if return_latent:
+            return out, latent
+        else:
+            return out
 
 
 class ResNeXt29(CifarResNeXt):
@@ -303,5 +306,4 @@ class ResNeXt29(CifarResNeXt):
             in_channels,
             num_classes,
             init_stride=init_stride,
-            return_latent=return_latent,
         )
