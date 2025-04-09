@@ -101,16 +101,32 @@ class BaseTrainer(pl.LightningModule):
         }
         return metrics
 
+    def batch_to_loss(self, batch):
+        x, y = batch
+        y_hat = self.model(self.normalisation(x))
+        loss = self.criterion(y_hat, y)
+        return loss, y, y_hat
+
+    def log_loss(self, loss, prefix, prog_bar, on_epoch, on_step):
+        # loss can be a dict
+        if isinstance(loss, dict):
+            for key, value in loss.items():
+                self.log(
+                    f"{prefix}/{key}", value, prog_bar=prog_bar, on_epoch=on_epoch, on_step=on_step
+                )
+            return loss["loss"]
+        else:
+            self.log(f"{prefix}/loss", loss, prog_bar=prog_bar, on_epoch=on_epoch, on_step=on_step)
+            return loss
+
     def forward(self, x):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
         batch = self.before_batch_train(batch)
-        x, y = batch
-        y_hat = self.model(self.normalisation(x))
-        loss = self.criterion(y_hat, y)
+        loss, y, y_hat = self.batch_to_loss(batch)
 
-        self.log("train/loss", loss, prog_bar=False, on_epoch=False, on_step=True)
+        loss = self.log_loss(loss, prefix="train", prog_bar=True, on_epoch=False, on_step=True)
         batch_metrics = self.train_metrics(y_hat, y)
 
         self.log_dict(batch_metrics, prog_bar=True, on_epoch=False, on_step=True)
@@ -121,11 +137,9 @@ class BaseTrainer(pl.LightningModule):
         self.train_metrics.reset()
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self.model(self.normalisation(x))
-        loss = self.criterion(y_hat, y)
+        loss, y, y_hat = self.batch_to_loss(batch)
 
-        self.log("val/loss", loss, prog_bar=True, on_epoch=True, on_step=False)
+        loss = self.log_loss(loss, prefix="val", prog_bar=True, on_epoch=True, on_step=False)
         self.val_metrics.update(y_hat, y)
 
         return loss
@@ -135,11 +149,9 @@ class BaseTrainer(pl.LightningModule):
         self.val_metrics.reset()
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self.model(self.normalisation(x))
-        loss = self.criterion(y_hat, y)
+        loss, y, y_hat = self.batch_to_loss(batch)
 
-        self.log("test/loss", loss, prog_bar=True, on_epoch=True, on_step=False)
+        loss = self.log_loss(loss, prefix="test", prog_bar=True, on_epoch=True, on_step=False)
         self.test_metrics.update(y_hat, y)
 
         return loss
