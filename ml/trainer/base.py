@@ -15,7 +15,7 @@ from ml.util import STORE, MODEL_TYPE, MIX_TYPE, AUG_TYPE
 
 
 class BaseTrainer(pl.LightningModule):
-    def __init__(self, config: ConfigDict, normalisation: torch.nn.Module):
+    def __init__(self, config: ConfigDict, normalisation: torch.nn.Module, valid_dl):
         super().__init__()
 
         # initialise the config
@@ -36,6 +36,8 @@ class BaseTrainer(pl.LightningModule):
         self.train_metrics = metrics.clone(prefix="train/")
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
+
+        self.val_dl = valid_dl
 
         self.save_hyperparameters(self.config.to_dict())
 
@@ -153,4 +155,24 @@ class BaseTrainer(pl.LightningModule):
         """
         Override this method to configure callbacks for the trainer.
         """
-        return [self.scheduler]
+
+        callbacks = [self.scheduler]
+
+        if self.config.log_latent:
+            from ml.probing import Prober
+            from ml.probing.analyser import PCAAnalysis
+
+            valid_dl = self.val_dl
+            encoders = {"model": self.model}
+            analyses = {"pca": PCAAnalysis(n_components=2)}
+
+            prober = Prober(
+                encoders=encoders,
+                analyses=analyses,
+                valid_dl=valid_dl,
+                probe_every=1,
+            )
+
+            callbacks.append(prober)
+
+        return callbacks
