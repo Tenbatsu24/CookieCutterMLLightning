@@ -4,8 +4,7 @@ import torchvision.transforms as T
 from torch.utils.data import DataLoader
 from lightning.pytorch.loggers import WandbLogger
 
-from ml.module import Module
-from ml.trainer import BaseTrainer, SAMTrainer
+from ml.trainer import BaseTrainer
 from ml.util import STORE, DATA_TYPE
 from ml.config import PROCESSED_DATA_DIR, MODELS_DIR, WANDB_PROJECT
 
@@ -30,7 +29,7 @@ def prepare_mnist(batch_size, ds_name):
         pin_memory=True,
         num_workers=4,
         persistent_workers=True,
-        drop_last=True
+        drop_last=True,
     )
     val_loader = DataLoader(
         val_dataset,
@@ -173,7 +172,7 @@ def train(cfg, fast_dev_run=False):
     else:
         raise ValueError(f"Unknown dataset {ds_name}")
 
-    module = SAMTrainer(cfg, Module(cfg, normalisation=norm))
+    module = BaseTrainer(cfg, norm)
 
     trainer.fit(module, train_loader, val_loader)
 
@@ -181,12 +180,14 @@ def train(cfg, fast_dev_run=False):
 if __name__ == "__main__":
     from ml_collections import ConfigDict
 
+    from ml.config import CONFIGS_DIR
+
     _cfg = {
         "dataset": {
             "name": "c10",
         },
         "batch_size": 128,
-        "run_name": "c10",
+        "run_name": "c10-rn18",
         "run_id": None,
         "pl": {
             "checkpoint": {"monitor": "val/acc", "mode": "max"},
@@ -194,7 +195,7 @@ if __name__ == "__main__":
                 "accelerator": "gpu",
                 "precision": "32",
                 "devices": 1,
-                "strategy": 'auto',
+                "strategy": "auto",
                 "num_sanity_val_steps": 0,
                 "gradient_clip_val": 0.5,
                 "gradient_clip_algorithm": "norm",
@@ -210,25 +211,48 @@ if __name__ == "__main__":
         "scheduler": [
             ("lr", "CosSched(0.1, 1e-6)"),
             ("weight_decay", "CosSched(2e-5, 1e-4)"),
+            # ("lr", "CatSched(LinSched(1e-9, 1e-3), CosSched(1e-3, 1e-6), 2)"),
+            # ("weight_decay", "CosWarmup(0.01, 0.05, 2)")
         ],
         "opt": {
             "type": "SGD",
-            # "base_type": "SGD",
-            "params": {
-                # "rho": 0.05, "adaptive": True,
-                "lr": 0.1, "momentum": 0.9, "weight_decay": 2e-5, "nesterov": True
-            },
+            "params": {"lr": 0.1, "momentum": 0.9, "weight_decay": 2e-5, "nesterov": True},
+            # "type": "AdamW",
+            # "params": {
+            #     "lr": 0.001, "weight_decay": 0.01, "betas": (0.9, 0.999), "eps": 1e-8
+            # }
         },
         "model": {
             "type": "rn18",
-            "params": {"num_classes": 10, "in_channels": 3, "return_latent": False},
+            "params": {"num_classes": 10, "in_channels": 3},
+            # "type": "32-cct",
+            # "params": {
+            #     "n_input_channels": 3, "img_size": 32, "num_classes": 10
+            # }
         },
         "loss": {
             "type": "CrossEntropyLoss",
             "params": {"weight": None, "label_smoothing": 1e-5, "reduction": "mean"},
         },
+        "metrics": {
+            "acc": {
+                "type": "Accuracy",
+                "params": {
+                    "task": "multiclass",
+                    "num_classes": 10,
+                    "average": "macro",  # "macro" is for averaging across classes
+                },
+            }
+        },
     }
 
     _cfg = ConfigDict(_cfg, convert_dict=True)
 
-    train(_cfg, fast_dev_run=False)
+    # Save the config to a file as json
+    config_file = CONFIGS_DIR / f"{_cfg.run_name}.json"
+    _json_cfg = _cfg.to_json(indent=2)
+
+    with open(config_file, "w") as f:
+        f.write(_json_cfg)
+
+    # train(_cfg, fast_dev_run=False)
