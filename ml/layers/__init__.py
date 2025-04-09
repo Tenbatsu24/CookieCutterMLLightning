@@ -1,10 +1,11 @@
+from .mlp import Mlp
+from .block import Block
 from .dino_head import DINOHead
 from .drop_path import DropPath
-from .mlp import Mlp
 from .patch_embed import PatchEmbed
-from .swiglu_ffn import SwiGLUFFN, SwiGLUFFNFused
 from .block import NestedTensorBlock
 from .attention import MemEffAttention
+from .swiglu_ffn import SwiGLUFFN, SwiGLUFFNFused
 
 __all__ = [
     "DINOHead",
