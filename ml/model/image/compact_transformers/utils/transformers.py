@@ -52,7 +52,7 @@ class TransformerClassifier(Module):
         num_layers=12,
         num_heads=12,
         mlp_ratio=4.0,
-        num_classes=1000,
+        num_classes=None,
         dropout=0.1,
         attention_dropout=0.1,
         stochastic_depth=0.1,
@@ -62,6 +62,12 @@ class TransformerClassifier(Module):
         image_latent=False,
     ):
         super().__init__()
+        assert not (
+            patch_latent and not seq_pool
+        ), "Patch latent and not sequence pooling cannot be used at the same time."
+        assert not (
+            image_latent and patch_latent
+        ), "Image latent and patch latent cannot be used at the same time."
         positional_embedding = (
             positional_embedding
             if positional_embedding in ["sine", "learnable", "none"]
@@ -119,7 +125,12 @@ class TransformerClassifier(Module):
         )
         self.norm = LayerNorm(embedding_dim)
 
-        self.fc = Linear(embedding_dim, num_classes)
+        if not (image_latent or patch_latent):
+            assert (
+                num_classes is not None
+            ), "num_classes must be specified if image_latent and patch_latent are False."
+            self.fc = Linear(embedding_dim, num_classes)
+
         self.apply(self.init_weight)
 
     def forward(self, x):
@@ -139,15 +150,26 @@ class TransformerClassifier(Module):
             x = blk(x)
         x = self.norm(x)
 
-        if self.seq_pool:
-            x = torch.matmul(
-                F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x
-            ).squeeze(-2)
-        else:
-            x = x[:, 0]
+        if not self.patch_latent:
+            if self.seq_pool:
+                latent = torch.matmul(
+                    F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x
+                ).squeeze(-2)
+            else:
+                latent = x[:, 0]
 
-        x = self.fc(x)
-        return x
+            if not self.image_latent:
+                out = self.fc(latent)
+            else:
+                out = None
+        else:
+            out = None
+            if not self.seq_pool:
+                latent = x[:, 1:]
+            else:
+                latent = x
+
+        return out, latent
 
     @staticmethod
     def init_weight(m):
@@ -190,12 +212,15 @@ if __name__ == "__main__":
         num_layers=12,
         num_heads=12,
         mlp_ratio=4.0,
-        num_classes=1000,
+        num_classes=None,
         dropout=0.1,
         attention_dropout=0.1,
         stochastic_depth=0.1,
         positional_embedding="learnable",
         sequence_length=tokenizer.sequence_length(3, 224, 224),
+        seq_pool=True,
+        patch_latent=True,
+        image_latent=False,
     )
 
     tokenizer.cuda()

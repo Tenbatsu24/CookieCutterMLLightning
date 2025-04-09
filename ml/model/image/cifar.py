@@ -101,6 +101,7 @@ class ResNet(nn.Module):
 
         self.return_latent = return_latent
         self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+
         if not self.return_latent:
             self.linear = nn.Linear(512 * block.expansion, num_classes, bias=self.linear_bias)
 
@@ -119,12 +120,14 @@ class ResNet(nn.Module):
         out = self.layer3(out)
         out = self.layer4(out)
         out = self.avg_pool(out)
-        out = out.view(out.size(0), -1)
+        latent = out.view(out.size(0), -1)
 
-        if self.return_latent:
-            return out
+        if not self.return_latent:
+            out = self.linear(latent)
         else:
-            return self.linear(out)
+            out = None
+
+        return out, latent
 
 
 class ResNet18(ResNet):
@@ -234,6 +237,7 @@ class CifarResNeXt(nn.Module):
         self.return_latent = return_latent
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+
         if not self.return_latent:
             self.classifier = nn.Linear(256 * block.expansion, num_classes)
 
@@ -278,11 +282,14 @@ class CifarResNeXt(nn.Module):
         x = self.stage_2(x)
         x = self.stage_3(x)
         x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-        if self.return_latent:
-            return x
+        latent = x.view(x.size(0), -1)
+
+        if not self.return_latent:
+            out = self.classifier(latent)
         else:
-            return self.classifier(x)
+            out = None
+
+        return out, latent
 
 
 class ResNeXt29(CifarResNeXt):
