@@ -105,7 +105,7 @@ class BaseTrainer(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         batch = self.before_batch_train(batch)
         x, y = batch
-        y_hat = self.model(self.normalisation(x))
+        y_hat, _ = self.model(self.normalisation(x))
         loss = self.criterion(y_hat, y)
 
         self.log("train/loss", loss, prog_bar=False, on_epoch=False, on_step=True)
@@ -120,7 +120,7 @@ class BaseTrainer(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.model(self.normalisation(x))
+        y_hat, _ = self.model(self.normalisation(x))
         loss = self.criterion(y_hat, y)
 
         self.log("val/loss", loss, prog_bar=True, on_epoch=True, on_step=False)
@@ -134,7 +134,7 @@ class BaseTrainer(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.model(self.normalisation(x))
+        y_hat, _ = self.model(self.normalisation(x))
         loss = self.criterion(y_hat, y)
 
         self.log("test/loss", loss, prog_bar=True, on_epoch=True, on_step=False)
