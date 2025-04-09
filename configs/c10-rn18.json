@@ -3,6 +3,7 @@
   "dataset": {
     "name": "c10"
   },
+  "log_latent": true,
   "loss": {
     "params": {
       "label_smoothing": 1e-05,
