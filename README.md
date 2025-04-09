@@ -119,4 +119,130 @@ echo "LOGS_DIR=" >> .env  # Directory to the logs
     └──  config.py               <- Store useful variables and configuration.
 ```
 
+
+--------
+
+## Usage
+
+### Training
+```bash
+python3 train_classification.py --help
+# usage: train_classification.py [-h] --config CONFIG [--fast-dev-run]
+#
+#Train a model
+#
+#options:
+#  -h, --help       show this help message and exit
+#  --config CONFIG  Path to the config file
+#  --fast-dev-run   Run a fast dev run
+
+python3 train_classification.py --config c10-rn18.json
+```
+Look at the `configs` folder for more configuration files.
+
+---
+
+### 🔧 Configuration File Overview
+This configuration file (`configs/c10-cct.json`) is used to train a Compact Convolution Transformer (CCT) on the CIFAR10 dataset using PyTorch Lightning. It defines all necessary settings for data loading, model architecture, optimization, logging, training, and evaluation.
+
+The config is passed to the training script as follows:
+```bash
+python train_classification.py --config configs/c10-cct.json
+```
+
+---
+
+### 🔑 Top-Level Keys Explained
+
+#### **`batch_size`**
+Defines the number of samples per batch used during training. Affects memory usage and convergence speed.
+
+---
+
+#### **`dataset`**
+Specifies which dataset to use. In this case:
+```json
+"dataset": {
+  "name": "c10"
+}
+```
+refers to the CIFAR10 dataset.
+
+---
+
+#### **`log_latent`**
+A boolean indicating whether to log latent representations (for visualization).
+
+---
+
+#### **`loss`**
+Specifies the loss function and its parameters.
+In this config:
+- `type`: `"CrossEntropyLoss"`
+- `params`: Includes options like `label_smoothing` and `reduction`.
+
+---
+
+#### **`metrics`**
+Defines evaluation metrics to monitor performance.
+Example:
+```json
+"acc": {
+  "type": "Accuracy",
+  "params": {
+    "task": "multiclass",
+    "average": "macro",
+    "num_classes": 10
+  }
+}
+```
+This calculates macro-averaged accuracy for a 10-class classification task.
+
+---
+
+#### **`model`**
+Specifies the model architecture and its parameters:
+- `type`: `"32-cct"` (refers to a 32x32 Compact Convolution Transformer)
+- `params`: Image size, input channels, and number of output classes.
+
+---
+
+#### **`opt` (Optimizer)**
+Defines the optimizer and its hyperparameters:
+- `type`: `"AdamW"`
+- `params`: Learning rate, weight decay, betas, epsilon, etc.
+
+---
+
+#### **`scheduler`**
+A list of learning rate and weight decay schedulers.
+Each entry is a tuple: `[param_name, scheduler_expression]`.
+
+For example:
+```json
+["lr", "CatSched(LinSched(1e-9, 1e-3), CosSched(1e-3, 1e-6), 2)"]
+```
+- Schedules are defined via composable string expressions parsed with AST from the `ml.scheduler` module.
+
+📌 **Note:** This design allows flexible, nested scheduler definitions.
+
+---
+
+#### **`pl` (PyTorch Lightning Configuration)**
+Houses configuration for:
+- **`checkpoint`**: Settings for saving model checkpoints (e.g., based on validation accuracy).
+- **`trainer`**: Controls PyTorch Lightning's training loop (devices, precision, gradient clipping, epoch limits, etc.).
+
+---
+
+#### **`run_id`**
+An optional identifier for the current training run (useful for logging or experiment tracking).
+
+---
+
+#### **`run_name`**
+A string used to label the run. Helps in organizing logs and outputs.
+
+---
+
 --------
