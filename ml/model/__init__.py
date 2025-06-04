@@ -1,4 +1,6 @@
 from .image import (
+    resnet18,
+    resnet50,
     ResNet18,
     ResNeXt29,
     cct_7_3x1_32,
@@ -9,6 +11,8 @@ from .image import (
 )
 
 __all__ = [
+    "resnet18",
+    "resnet50",
     "ResNet18",
     "ResNeXt29",
     "cct_7_3x1_32",
