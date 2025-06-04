@@ -1,10 +1,9 @@
-import torch.nn as nn
-
-from .utils.transformers import TransformerClassifier
 from .utils.tokenizer import Tokenizer
+from .utils.base import BaseCompactTransformer
+from .utils.transformers import TransformerClassifier
 
 
-class ViTLite(nn.Module):
+class ViTLite(BaseCompactTransformer):
     def __init__(
         self,
         img_size=224,
@@ -53,10 +52,6 @@ class ViTLite(nn.Module):
             num_classes=num_classes,
             positional_embedding=positional_embedding,
         )
-
-    def forward(self, x):
-        x = self.tokenizer(x)
-        return self.classifier(x)
 
 
 def _vit_lite(

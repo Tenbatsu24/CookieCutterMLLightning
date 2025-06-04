@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from einops import rearrange
 
 from torch.nn import Module, ModuleList, Linear, Dropout, LayerNorm, Identity, Parameter, init
 
@@ -178,11 +179,11 @@ class TransformerClassifier(Module):
                 image_latent = x[:, 0]
 
             if self.fc is None:
-                return patch_latent
+                return rearrange(patch_latent, "b n d -> (b n) d").contiguous()
             else:
                 out = self.fc(image_latent)
                 if return_latent:
-                    return out, patch_latent
+                    return out, rearrange(patch_latent, "b n d -> (b n) d").contiguous()
                 else:
                     return out
 

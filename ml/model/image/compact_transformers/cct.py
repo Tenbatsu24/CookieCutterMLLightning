@@ -1,22 +1,17 @@
 import torch.nn as nn
 
-from .utils.transformers import TransformerClassifier
 from .utils.tokenizer import Tokenizer
+from .utils.base import BaseCompactTransformer
+from .utils.transformers import TransformerClassifier
 
 
-class CCT(nn.Module):
+class CCT(BaseCompactTransformer):
     def __init__(
         self,
         img_size=224,
         embedding_dim=768,
         n_input_channels=3,
-        n_conv_layers=1,
         kernel_size=7,
-        stride=2,
-        padding=3,
-        pooling_kernel_size=3,
-        pooling_stride=2,
-        pooling_padding=1,
         dropout=0.0,
         attention_dropout=0.1,
         stochastic_depth=0.1,
@@ -25,6 +20,12 @@ class CCT(nn.Module):
         mlp_ratio=4.0,
         num_classes=1000,
         positional_embedding="learnable",
+        n_conv_layers=1,
+        stride=2,
+        padding=3,
+        pooling_kernel_size=3,
+        pooling_stride=2,
+        pooling_padding=1,
         *args,
         **kwargs,
     ):
@@ -60,10 +61,6 @@ class CCT(nn.Module):
             positional_embedding=positional_embedding,
             **kwargs,
         )
-
-    def forward(self, x):
-        x = self.tokenizer(x)
-        return self.classifier(x)
 
 
 def _cct(
