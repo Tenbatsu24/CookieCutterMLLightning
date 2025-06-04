@@ -1,11 +1,8 @@
-from typing import List, Tuple
-
 import torch
 
-from tqdm.auto import tqdm
 from torchmetrics import Accuracy
 
-from ml.probing.util import Analysis
+from ml.probing.util import Analysis, EmbeddingDataset
 
 
 class LogRegAnalysis(Analysis):
@@ -27,25 +24,34 @@ class LogRegAnalysis(Analysis):
     ):
         from sklearn.linear_model import LogisticRegression
 
-        self.clf = LogisticRegression(multi_class="multinomial")
+        self.clf = LogisticRegression()
         self.acc = Accuracy(task="multiclass", num_classes=n_classes)
 
     @torch.inference_mode(False)
     @torch.no_grad()
-    def train(self, train_data: List[Tuple[torch.Tensor, torch.Tensor]], verbose=True):
-        X, y = zip(*train_data)
+    def train(self, train_data: EmbeddingDataset, verbose=True):
+        with torch.utils.data.DataLoader(
+            train_data, batch_size=256, shuffle=False, num_workers=0
+        ) as train_dl:
+
+            X, y = [], []
+            for embeddings, targets in train_dl:
+                X.append(embeddings)
+                y.append(targets)
+
         X, y = torch.cat(X).numpy(), torch.cat(y).numpy()
         self.clf.fit(X, y)
+        del X, y
 
-    def valid(self, valid_data: List[Tuple[torch.Tensor, torch.Tensor]]):
-        valid_pbar = tqdm(valid_data, leave=False)
-        valid_pbar.set_description("Validation")
-
+    def valid(self, valid_data: EmbeddingDataset):
         self.acc.reset()
-        for embeddings, targets in valid_pbar:
-            predictions = self.clf.predict_proba(embeddings.numpy())
-            self.acc.update(torch.from_numpy(predictions), targets)
-            valid_pbar.set_postfix({"acc": float(self.acc.compute())})
+
+        with torch.utils.data.DataLoader(
+            valid_data, batch_size=256, shuffle=False, num_workers=0
+        ) as valid_dl:
+            for embeddings, targets in valid_dl:
+                predictions = self.clf.predict_proba(embeddings.numpy())
+                self.acc.update(torch.from_numpy(predictions), targets)
 
         return float(self.acc.compute())
 

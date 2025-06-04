@@ -1,12 +1,9 @@
-from typing import List, Tuple
-
 import torch
 
-from tqdm.auto import tqdm
 from torchmetrics import Accuracy
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
-from ml.probing.util import Analysis
+from ml.probing.util import Analysis, EmbeddingDataset
 
 
 # LinearDiscriminantAnalysis supported on GPU:
@@ -41,21 +38,29 @@ class LinDiscrAnalysis(Analysis):
     @torch.inference_mode(False)
     @torch.no_grad()
     @config_context(array_api_dispatch=True)
-    def train(self, train_data: List[Tuple[torch.Tensor, torch.Tensor]], verbose=True):
-        X, y = zip(*train_data)
+    def train(self, train_data: EmbeddingDataset, verbose=True):
+        with torch.utils.data.DataLoader(
+            train_data, batch_size=256, shuffle=False, num_workers=0
+        ) as train_dl:
+            X, y = [], []
+            for embeddings, targets in train_dl:
+                X.append(embeddings)
+                y.append(targets)
+
         X, y = torch.cat(X), torch.cat(y)
         self.clf.fit(X.to(self.device), y.to(self.device))
 
-    @config_context(array_api_dispatch=True)
-    def valid(self, valid_data: List[Tuple[torch.Tensor, torch.Tensor]]):
-        valid_pbar = tqdm(valid_data, leave=False)
-        valid_pbar.set_description("Validation")
+        del X, y
 
+    @config_context(array_api_dispatch=True)
+    def valid(self, valid_data: EmbeddingDataset):
         self.acc.reset()
-        for embeddings, targets in valid_pbar:
-            predictions = self.clf.predict_proba(embeddings.to(self.device))
-            self.acc.update(predictions, targets.to(self.device))
-            valid_pbar.set_postfix({"acc": float(self.acc.compute())})
+        with torch.utils.data.DataLoader(
+            valid_data, batch_size=256, shuffle=False, num_workers=0
+        ) as valid_dl:
+            for embeddings, targets in valid_dl:
+                predictions = self.clf.predict_proba(embeddings.to(self.device))
+                self.acc.update(predictions, targets.to(self.device))
 
         return float(self.acc.compute())
 
