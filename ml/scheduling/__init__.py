@@ -8,6 +8,8 @@ from .schedulers import (
     ExpWarmup,
     CosWarmup,
     MultiStep,
+    StepSched,
+    StepCycleSched,
 )
 
 __all__ = [
@@ -22,4 +24,6 @@ __all__ = [
     "ExpWarmup",
     "CosWarmup",
     "MultiStep",
+    "StepSched",
+    "StepCycleSched",
 ]

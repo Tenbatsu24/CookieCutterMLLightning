@@ -7,6 +7,8 @@ from typing import List, Tuple, Union
 import torch
 import lightning.pytorch as pl
 
+from loguru import logger
+
 ## Strings which are mapped to constants in the parser
 __named_const__ = {"nan": torch.nan, "NaN": torch.nan, "none": torch.nan, "None": torch.nan}
 
@@ -78,6 +80,12 @@ class Schedule:
             expr = ast.parse(expr, mode="eval")
             return Schedule.parse_const(expr)
 
+        if isinstance(expr, ast.UnaryOp):
+            if isinstance(expr.op, ast.UAdd):
+                return Schedule.parse_const(expr.operand)
+            if isinstance(expr.op, ast.USub):
+                return Schedule.parse_const(-expr.operand)
+
         if isinstance(expr, ast.Constant):  # pythonic constants
             literal = ast.literal_eval(expr)  # resolve literal
             if literal is None:  # NoneType
@@ -126,6 +134,14 @@ class Schedule:
         # fall through case: argument was not a parseable string but an int
         if isinstance(expr, int):
             return ConstSched(expr)
+
+        if isinstance(expr, ast.UnaryOp):
+            # unary operator but the operand must be a constant
+            if isinstance(expr.op, ast.UAdd):
+                return Schedule.parse(expr.operand)
+            if isinstance(expr.op, ast.USub):
+                # unary minus but the operand must be a constant
+                return -Schedule.parse(expr.operand)
 
         # fall through case: argument was not a parseable string but a Schedule
         if isinstance(expr, Schedule):
@@ -188,11 +204,33 @@ class Scheduler(pl.Callback):
     def on_fit_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule, *args):
         trainer.fit_loop.setup_data()  # load train dataloader -> get len(loader) == trainer.num_training_batches
         steps_per_epoch = len(trainer.train_dataloader) / trainer.accumulate_grad_batches
+        steps_per_epoch_ceil = ceil(steps_per_epoch)
         if int(steps_per_epoch) != steps_per_epoch:
-            raise ValueError(
-                "Currently, the batch accumulation factor must devide the number of batches."
+            logger.warning(
+                f"steps_per_epoch is not an integer ({steps_per_epoch}), rounding up to {steps_per_epoch_ceil}"
             )
+            logger.warning(
+                f"This adds {trainer.max_epochs * (steps_per_epoch_ceil - steps_per_epoch)} steps to the scheduler."
+            )
+            steps_per_epoch = steps_per_epoch_ceil
+        logger.info(
+            f"trainer.max_steps: {trainer.max_steps}, trainer.max_epochs: {trainer.max_epochs}, steps_per_epoch: {steps_per_epoch}"
+        )
         self.prep(trainer.max_steps, trainer.max_epochs, int(steps_per_epoch))
 
     def on_train_batch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule, *args):
         self.step(trainer.global_step)
+        pl_module.log_dict(
+            {
+                "trainer/global_step": trainer.global_step,
+                "epoch": trainer.current_epoch,
+                **{
+                    f"sched/{k}": sched(trainer.global_step)
+                    for _, k, sched in self.scheduled_params
+                },
+            },
+            prog_bar=False,
+            logger=True,
+            on_step=True,
+            on_epoch=False,
+        )

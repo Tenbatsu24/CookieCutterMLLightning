@@ -47,7 +47,6 @@ class CatSched(Schedule):
         if n_steps_r > 0 or n_epochs_r > 0:  # don't prepare if length is 0
             self.sched_r.prep(n_steps_r, n_epochs_r, self.steps_per_epoch)
             ys_list.append(self.sched_r.ys)
-
         # concatenate left and right schedules
         self.ys = torch.concat(ys_list)
 
@@ -159,3 +158,83 @@ class MultiStep(Schedule):
 
     def __repr__(self, _=None) -> str:
         return Schedule.__repr__(self, [self.start, self.gamma] + list(self.steps))
+
+
+class StepSched(Schedule):
+    def __init__(self, start: float, gamma: float, step_every: int, warmup_epochs: int):
+        super().__init__()
+        self.start = float(start)
+        self.gamma = float(gamma)
+        self.step_every = step_every
+        self.warmup_epochs = warmup_epochs
+
+    def set_ys(self) -> Self:
+        milestones = [
+            i - self.warmup_epochs for i in range(self.step_every, self.n_epochs, self.step_every)
+        ]
+        milestones = [i * self.steps_per_epoch for i in milestones]
+
+        last_step = 0
+        value = self.start
+        self.ys = torch.full((self.n_steps,), torch.nan)
+        for step in milestones:
+            self.ys[last_step:step] = value
+            value *= self.gamma
+            last_step = step
+        self.ys[last_step:] = value
+
+    def __repr__(self, _=None) -> str:
+        return Schedule.__repr__(
+            self, [self.start, self.gamma, self.step_every, self.warmup_epochs]
+        )
+
+
+class StepCycleSched(Schedule):
+    """
+    Creates a schedule where we rise from min_v to max_v in cos schedule,
+    then decay to min_v in a cos schedule. the rise and falls happen in length of cycle_length.
+
+    Then we decay the max_v using the decay factor. and repeat until another cycle won't fit in the schedule.
+    """
+
+    def __init__(self, min_v: float, max_v: float, decay: float, cycle_length: int):
+        super().__init__()
+        self.min_v = float(min_v)
+        self.max_v = float(max_v)
+        self.decay = float(decay)
+        self.cycle_length = cycle_length
+
+    def set_ys(self) -> Self:
+        # if 0 < cycle length < 1, get the number of steps else treat it as epochs and convert to steps
+        if 0 < self.cycle_length < 1:
+            cycle_length = int(self.cycle_length * self.n_steps)
+        elif self.cycle_length > 1:
+            cycle_length = int(self.cycle_length * self.steps_per_epoch)
+        else:
+            raise ValueError("cycle_length must be > 0")
+
+        # calculate the number of cycles
+        n_cycles = self.n_steps // cycle_length
+        # calculate the remaining steps
+        n_remaining = self.n_steps % cycle_length
+
+        # create the schedule for the cycles
+        xs = torch.linspace(-torch.pi, 0, cycle_length // 2)
+        cycle = torch.cat(
+            [
+                self.min_v + (self.max_v - self.min_v) * (0.5 + torch.cos(xs) / 2),
+                self.max_v + (self.min_v - self.max_v) * (0.5 + torch.cos(xs) / 2),
+            ]
+        )
+        # repeat the cycle for n_cycles
+        ys = cycle.repeat(n_cycles)
+
+        # decay the max value
+        for i in range(n_cycles):
+            ys[i * cycle_length : (i + 1) * cycle_length] *= self.decay**i
+
+        # add the remaining steps as 0
+        if n_remaining > 0:
+            ys = torch.cat([ys, torch.zeros(n_remaining)])
+
+        self.ys = ys
