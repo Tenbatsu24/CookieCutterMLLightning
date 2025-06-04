@@ -125,7 +125,6 @@ def load_data(encoder: nn.Module, dl: DataLoader, device: torch.device = None):
 
         *_, embeddings = wrap_to_tuple_maybe(encoder(inputs, return_latent=True))
         if not flag:
-            logger.info(embeddings.shape)
             flag = True
 
         # embeddings: (batch_size, n_features), targets: (batch_size, ...)
