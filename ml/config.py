@@ -114,3 +114,6 @@ if os.getenv("WANDB_MODE") == "disabled":
     # set WANDB_SILENT to true to disable logging
     os.environ["WANDB_SILENT"] = "true"
     logger.info("WandB is made silent.")
+
+
+NUM_WORKERS = int(os.getenv("NUM_WORKERS", 2))
