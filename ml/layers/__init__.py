@@ -1,5 +1,5 @@
 from .mlp import Mlp
-from .block import Block
+from .block import Block  # noqa: F401
 from .dino_head import DINOHead
 from .drop_path import DropPath
 from .patch_embed import PatchEmbed

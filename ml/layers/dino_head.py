@@ -10,15 +10,15 @@ class DINOHead(nn.Module):
         in_dim,
         out_dim,
         use_bn=False,
-        nlayers=3,
+        n_layers=3,
         hidden_dim=2048,
         bottleneck_dim=256,
         mlp_bias=True,
     ):
         super().__init__()
-        nlayers = max(nlayers, 1)
+        n_layers = max(n_layers, 1)
         self.mlp = _build_mlp(
-            nlayers, in_dim, bottleneck_dim, hidden_dim=hidden_dim, use_bn=use_bn, bias=mlp_bias
+            n_layers, in_dim, bottleneck_dim, hidden_dim=hidden_dim, use_bn=use_bn, bias=mlp_bias
         )
         self.apply(self._init_weights)
         self.last_layer = weight_norm(nn.Linear(bottleneck_dim, out_dim, bias=False))
