@@ -14,26 +14,37 @@ class RandomMixUp(torch.nn.Module):
         inplace (bool): boolean to make this transform inplace. Default set to False.
     """
 
-    def __init__(self, p: float = 0.5, alpha: float = 1.0, inplace: bool = True) -> None:
+    def __init__(
+        self, num_classes: int, p: float = 0.5, alpha: float = 1.0, inplace: bool = False
+    ) -> None:
         super().__init__()
+
+        if num_classes < 1:
+            raise ValueError(
+                f"Please provide a valid positive value for the num_classes. Got num_classes={num_classes}"
+            )
 
         if alpha <= 0:
             raise ValueError("Alpha param can't be zero.")
 
+        self.num_classes = num_classes
         self.p = p
         self.alpha = alpha
         self.inplace = inplace
 
-    @torch.no_grad()
     def forward(self, batch, target):
         """
         Args:
-            batch (Tensor): Float tensor of size (B, C, H, W, [D])
-            target (Tensor): Integer tensor of size (B, C, [H, W], [D])
+            batch (Tensor): Float tensor of size (B, C, H, W)
+            target (Tensor): Integer tensor of size (B, )
 
         Returns:
             Tensor: Randomly transformed batch.
         """
+        if batch.ndim != 4:
+            raise ValueError(f"Batch ndim should be 4. Got {batch.ndim}")
+        if target.ndim != 1:
+            raise ValueError(f"Target ndim should be 1. Got {target.ndim}")
         if not batch.is_floating_point():
             raise TypeError(f"Batch dtype should be a float tensor. Got {batch.dtype}.")
         if target.dtype != torch.int64:
@@ -43,7 +54,10 @@ class RandomMixUp(torch.nn.Module):
             batch = batch.clone()
             target = target.clone()
 
-        target = target.to(dtype=batch.dtype)
+        if target.ndim == 1:
+            target = torch.nn.functional.one_hot(target, num_classes=self.num_classes).to(
+                dtype=batch.dtype
+            )
 
         if torch.rand(1).item() >= self.p:
             return batch, target
@@ -72,6 +86,3 @@ class RandomMixUp(torch.nn.Module):
             f")"
         )
         return s
-
-    def __str__(self) -> str:
-        return self.__repr__()
