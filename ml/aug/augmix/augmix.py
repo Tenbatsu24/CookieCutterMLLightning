@@ -15,7 +15,7 @@ from kornia.augmentation import (
 from ..prime import PRIMEAugModule, GeneralizedPRIMEModule
 
 
-class AugMix(torch.nn.Module):
+class GPUAugMix(torch.nn.Module):
     r"""AugMix data augmentation method based on
     `"AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty" <https://arxiv.org/abs/1912.02781>`_.
     If the image is torch Tensor, it should be of type torch.uint8, and it is expected
