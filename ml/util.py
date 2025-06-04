@@ -18,7 +18,7 @@ class InstanceRegistry:
 
     def get_class(self, name):
         if name not in self._registry:
-            raise ValueError(f"Unknown {name}")
+            raise KeyError(f"Unknown {name} in registry:\n{self}")
         return self._registry[name]
 
     def get_registry(self):
