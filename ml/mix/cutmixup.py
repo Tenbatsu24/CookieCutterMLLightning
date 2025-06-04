@@ -6,9 +6,7 @@ from .cutmix import RandomCutMix
 
 class CutMixUp(torch.nn.Module):
 
-    def __init__(
-        self, mixup_alpha=0.0, cutmix_alpha=0.0, num_categories=1000, p=0.5, *args, **kwargs
-    ):
+    def __init__(self, mixup_alpha=0.0, cutmix_alpha=0.0, p=0.5, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.p = p
         self.mixup = RandomMixUp(p=1.0, alpha=mixup_alpha, inplace=True)
