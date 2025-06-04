@@ -2,7 +2,7 @@ from loguru import logger
 
 import torch
 
-import ml.optim.custom.optim as custom_optim
+import ml.optim.custom as custom_optim
 
 
 def init_optims_from_config(config, model):

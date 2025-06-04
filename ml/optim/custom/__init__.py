@@ -1,4 +1,4 @@
-from .optim import SAM
+from .sam import SAM
 
 __all__ = [
     "SAM",
