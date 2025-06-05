@@ -5,6 +5,8 @@ from loguru import logger
 
 from lightning.pytorch.callbacks import ModelCheckpoint
 
+from ml.config import WANDB_ENTITY, WANDB_PROJECT
+
 
 class MyModelCheckpoint(ModelCheckpoint):
 
@@ -35,3 +37,40 @@ class MyModelCheckpoint(ModelCheckpoint):
             logger.info(f"Checkpoint saved to {filepath} and uploaded to WandB.")
         else:
             logger.info(f"Checkpoint saved to {filepath} but WandB is not active.")
+
+    def get_checkpoint_from_wandb(self, run_id: str):
+        """
+        Retrieve a checkpoint file from WandB using the run ID and filename.
+        """
+        if wandb.run is None or wandb.run.disabled:
+            raise RuntimeError("WandB is not initialized or disabled.")
+
+        run_path = f"{WANDB_PROJECT}/{run_id}"
+        if WANDB_ENTITY is not None:
+            run_path = f"{WANDB_ENTITY}/{run_path}"
+
+        try:
+            file = wandb.run.restore(
+                name=f"{self.filename}{self.FILE_EXTENSION}",
+                run_path=run_path,
+                replace=True,
+                root=self.dirpath,
+            )
+        except ValueError as e:
+            logger.error(f"Error retrieving checkpoint from WandB: {e}")
+            file = None
+
+        if file is None:
+            raise FileNotFoundError(
+                f"Checkpoint {self.filename} not found in WandB for run {run_id}."
+            )
+        else:
+            # get the path to the file
+            path_to_file = file.name
+            # close the file
+            try:
+                file.close()
+            except Exception as e:
+                logger.warning(f"Failed to close the file {file.name}: {e}")
+            # return the path to the file
+            return path_to_file

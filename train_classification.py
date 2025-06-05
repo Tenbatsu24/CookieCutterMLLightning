@@ -103,6 +103,20 @@ def train(cfg, fast_dev_run=False, test_only=False):
     module_cls = BaseTrainer
 
     # get the run id from wandb if defined and set it to the config
+    if hasattr(cfg, "run_id") and cfg.run_id is not None:
+        # check if there is a last.ckpt file in the checkpoints directory
+        if not (checkpoints_dir / "last.ckpt").exists():
+            # check if wandb has any last checkpoint
+            try:
+                last_checkpoint_callback.get_checkpoint_from_wandb(
+                    run_id=wandb_logger.experiment.id,
+                )
+                logger.success(
+                    f"Checkpoint {last_checkpoint_callback.filename} restored from WandB for run {cfg.run_id}."
+                )
+            except FileNotFoundError as e:
+                logger.error(str(e))
+
     cfg.run_id = wandb_logger.experiment.id
     module = module_cls(config=cfg, normalisation=norm, valid_dl=val_loader, train_dl=train_loader)
 
@@ -118,12 +132,23 @@ def train(cfg, fast_dev_run=False, test_only=False):
     for best_checkpoint in best_checkpoints:
         candidate_best = best_checkpoint.best_model_path or checkpoints_dir / best_checkpoint.filename
 
-        if Path(candidate_best).exists():
-            trainer.test(module, dataloaders=val_loader, ckpt_path=candidate_best)
+        if not Path(candidate_best).exists():
+            try:
+                best_checkpoint.get_checkpoint_from_wandb(
+                    run_id=wandb_logger.experiment.id,
+                )
+                logger.success(
+                    f"Checkpoint {best_checkpoint.filename} restored from WandB for run {cfg.run_id}."
+                )
+            except FileNotFoundError as e:
+                logger.error(str(e))
+                continue
 
-            if hasattr(cfg.dataset, "gen_test"):
-                module.load_state_dict(torch.load(candidate_best)["state_dict"])
-                generalisation_test(cfg, module, val_transform)
+        trainer.test(module, dataloaders=val_loader, ckpt_path=candidate_best)
+
+        if hasattr(cfg.dataset, "gen_test"):
+            module.load_state_dict(torch.load(candidate_best)["state_dict"])
+            generalisation_test(cfg, module, val_transform)
 
 
 def parse_args():
