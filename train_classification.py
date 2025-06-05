@@ -1,185 +1,129 @@
 import json
 import argparse
 
-import lightning.pytorch as pl
-import torchvision.transforms as T
+from pathlib import Path
+from pprint import pprint
 
+import torch
+import lightning.pytorch as pl
+
+from loguru import logger
 from ml_collections import ConfigDict
-from torch.utils.data import DataLoader
 from lightning.pytorch.loggers import WandbLogger
 
 from ml.trainer import BaseTrainer
-from ml.util import STORE, DATA_TYPE
-from ml.config import PROCESSED_DATA_DIR, MODELS_DIR, WANDB_PROJECT, CONFIGS_DIR
+from ml.wandb_util import MyModelCheckpoint
+from ml.config import MODELS_DIR, WANDB_PROJECT
+from ml.data import make_loaders, generalisation_test
 
 
-def prepare_mnist(batch_size, ds_name):
-    mean, std = (0.1307,), (0.3081,)
-    train_transform = T.Compose(
-        [T.RandomCrop(28, padding=4), T.ToTensor(), T.Normalize(mean=mean, std=std)]
-    )
+def set_run_name(cfg):
+    run_name = f"{cfg.dataset.name}"
 
-    val_transform = T.Compose([T.ToTensor(), T.Normalize(mean=mean, std=std)])
+    if hasattr(cfg.dataset, "aug"):
+        for aug in cfg.dataset.aug:
+            run_name += f"_{aug['id']}"
 
-    ds = STORE.get(DATA_TYPE, ds_name)
+    if hasattr(cfg, "aug"):
+        for aug in cfg.aug:
+            run_name += f"_{aug['id']}"
 
-    train_dataset = ds(PROCESSED_DATA_DIR, train=True, download=True, transform=train_transform)
-    val_dataset = ds(PROCESSED_DATA_DIR, train=False, transform=val_transform)
+    if hasattr(cfg, "label_noise") and cfg.label_noise.rate > 0:
+        run_name += f"_ln={cfg.label_noise.rate}"
+    if hasattr(cfg, "subset") and cfg.subset.pct > 0:
+        run_name += f"_sub={cfg.subset.pct / 100:.2f}"
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        pin_memory=True,
-        num_workers=4,
-        persistent_workers=True,
-        drop_last=True,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        pin_memory=True,
-        num_workers=4,
-        persistent_workers=True,
-    )
+    if hasattr(cfg.loss, "id"):
+        run_name += f"-{cfg.loss.id}"
 
-    return train_loader, val_loader, T.Normalize(mean=mean, std=std)
+    if hasattr(cfg, "reg") and cfg.reg.type is not None:
+        run_name += f"-{cfg.reg.id}"
+
+    run_name += f"-{cfg.model.type}"
+
+    if hasattr(cfg, "finetune") and cfg.finetune.enable:
+        run_name += "-ft"
+
+    logger.info(f"Run name: {run_name}")
+    cfg.run_name = run_name
+    return cfg
 
 
-def prepare_cifar(batch_size, ds_name):
-    mean, std = (0.49139968, 0.48215827, 0.44653124), (0.24703233, 0.24348505, 0.26158768)
-    train_transform = T.Compose(
-        [
-            T.RandomHorizontalFlip(),
-            T.RandomCrop(32, padding=4),
-            T.ToTensor(),
-        ]
-    )
+def train(cfg, fast_dev_run=False, test_only=False):
+    if hasattr(cfg, "run_id") and cfg.run_id is not None:
+        logger.info(f"Using existing run ID: {cfg.run_id}")
 
-    val_transform = T.Compose(
-        [
-            T.ToTensor(),
-        ]
-    )
-
-    ds = STORE.get(DATA_TYPE, ds_name)
-
-    train_dataset = ds(PROCESSED_DATA_DIR, train=True, download=True, transform=train_transform)
-    val_dataset = ds(PROCESSED_DATA_DIR, train=False, transform=val_transform)
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        pin_memory=True,
-        num_workers=4,
-        persistent_workers=True,
-        drop_last=True,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        pin_memory=True,
-        num_workers=4,
-        persistent_workers=True,
-    )
-
-    return train_loader, val_loader, T.Normalize(mean=mean, std=std)
-
-
-def prepare_im(batch_size, ds_name):
-    mean, std = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
-    train_transform = T.Compose(
-        [
-            T.Resize(256),
-            T.RandomResizedCrop(224),
-            T.RandomHorizontalFlip(),
-            T.ToTensor(),
-        ]
-    )
-
-    val_transform = T.Compose(
-        [
-            T.Resize(256),
-            T.CenterCrop(224),
-            T.ToTensor(),
-        ]
-    )
-
-    ds = STORE.get(DATA_TYPE, ds_name)
-
-    train_dataset = ds(PROCESSED_DATA_DIR, split="train", download=True, transform=train_transform)
-    val_dataset = ds(PROCESSED_DATA_DIR, split="val", transform=val_transform)
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        pin_memory=True,
-        num_workers=4,
-        persistent_workers=True,
-        drop_last=True,
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        pin_memory=True,
-        num_workers=4,
-        persistent_workers=True,
-    )
-
-    return train_loader, val_loader, T.Normalize(mean=mean, std=std)
-
-
-def train(cfg, fast_dev_run=False):
-    logger = WandbLogger(
+    wandb_logger = WandbLogger(
         project=WANDB_PROJECT, name=cfg.run_name, id=cfg.run_id, allow_val_change=True
     )
-    checkpoints_dir = MODELS_DIR / logger.experiment.project / logger.experiment.id
-    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+    if hasattr(cfg, "run_id") and cfg.run_id is not None and cfg.run_id != wandb_logger.experiment.id:
+        logger.error(f"Given run ID {cfg.run_id} does not match the WandB run ID {wandb_logger.experiment.id}.")
+        raise ValueError("Run ID mismatch. Please check your configuration.")
 
-    last_checkpoint_callback = pl.callbacks.ModelCheckpoint(
+    checkpoints_dir = MODELS_DIR / wandb_logger.experiment.project / wandb_logger.experiment.id
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Checkpoints directory: {checkpoints_dir}")
+
+    last_checkpoint_callback = MyModelCheckpoint(
         dirpath=checkpoints_dir,
+        save_last=True,
         monitor=None,
         filename="last",
     )
-    best_loss_checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        dirpath=checkpoints_dir,
-        save_top_k=1,
-        filename="best",
-        **cfg.pl.checkpoint.to_dict(),
-    )
+
+    best_checkpoints = []
+    if not (isinstance(cfg.pl.checkpoint, list) or isinstance(cfg.pl.checkpoint, tuple)) and isinstance(cfg.pl.checkpoint, ConfigDict):
+        checkpoints_details = [cfg.pl.checkpoint]
+    else:
+        checkpoints_details = cfg.pl.checkpoint
+
+    for checkpoint_details in checkpoints_details:
+        checkpoint_details = ConfigDict(checkpoint_details, convert_dict=True)
+        best_checkpoints.append(
+            MyModelCheckpoint(
+                save_last=False,
+                dirpath=checkpoints_dir,
+                save_top_k=1,
+                **checkpoint_details.to_dict(),
+            )
+        )
+
     trainer = pl.Trainer(
-        logger=logger,
+        logger=wandb_logger,
         callbacks=[
             last_checkpoint_callback,
-            best_loss_checkpoint_callback,
-            pl.callbacks.LearningRateMonitor(logging_interval="step", log_weight_decay=True),
+            *best_checkpoints,
         ],
         **cfg.pl.trainer.to_dict(),
         fast_dev_run=fast_dev_run,
     )
 
-    ds_name = cfg.dataset.name
-    batch_size = cfg.batch_size
+    train_loader, val_loader, norm, val_transform = make_loaders(cfg)
 
-    if ds_name in ["m", "fm"]:
-        train_loader, val_loader, norm = prepare_mnist(batch_size, ds_name)
-    elif ds_name in ["c10", "c100"]:
-        train_loader, val_loader, norm = prepare_cifar(batch_size, ds_name)
-    elif ds_name in ["im10"]:
-        train_loader, val_loader, norm = prepare_im(batch_size, ds_name)
-    else:
-        raise ValueError(f"Unknown dataset {ds_name}")
+    module_cls = BaseTrainer
 
-    module = BaseTrainer(cfg, norm, val_loader)
+    # get the run id from wandb if defined and set it to the config
+    cfg.run_id = wandb_logger.experiment.id
+    module = module_cls(config=cfg, normalisation=norm, valid_dl=val_loader, train_dl=train_loader)
 
-    trainer.validate(module, val_loader)
-    trainer.fit(module, train_loader, val_loader)
+    if not test_only:
+        candidate_last = checkpoints_dir / "last.ckpt"
+        trainer.fit(
+            module,
+            train_loader,
+            val_loader,
+            ckpt_path=candidate_last if candidate_last.exists() else None,
+        )
+
+    for best_checkpoint in best_checkpoints:
+        candidate_best = best_checkpoint.best_model_path or checkpoints_dir / best_checkpoint.filename
+
+        if Path(candidate_best).exists():
+            trainer.test(module, dataloaders=val_loader, ckpt_path=candidate_best)
+
+            if hasattr(cfg.dataset, "gen_test"):
+                module.load_state_dict(torch.load(candidate_best)["state_dict"])
+                generalisation_test(cfg, module, val_transform)
 
 
 def parse_args():
@@ -202,11 +146,14 @@ def parse_args():
 
 def main():
     args = parse_args()
-    with open(CONFIGS_DIR / args.config, "r") as f:
+    with open(args.config, "r") as f:
         cfg = json.load(f)
 
     # Convert the config to a ConfigDict
     cfg = ConfigDict(cfg, convert_dict=True)
+    cfg = set_run_name(cfg)
+
+    pprint(cfg.to_dict())
 
     train(cfg, fast_dev_run=args.fast_dev_run)
 
