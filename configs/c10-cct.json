@@ -1,12 +1,31 @@
 {
   "batch_size": 128,
   "dataset": {
+    "aug": [
+      {
+        "id": "tmix",
+        "params": {
+          "all_ops": true
+        },
+        "type": "tmix"
+      }
+    ],
+    "gen_test": [
+      {
+        "name": "c10c",
+        "type": "corruption"
+      },
+      {
+        "name": "c10cb",
+        "type": "corruption"
+      }
+    ],
     "name": "c10"
   },
   "log_latent": true,
   "loss": {
+    "id": "ce",
     "params": {
-      "label_smoothing": 1e-05,
       "reduction": "mean",
       "weight": null
     },
@@ -20,6 +39,30 @@
         "task": "multiclass"
       },
       "type": "Accuracy"
+    },
+    "auroc": {
+      "params": {
+        "average": "macro",
+        "num_classes": 10,
+        "task": "multiclass",
+        "thresholds": 10
+      },
+      "type": "AUROC"
+    },
+    "ece": {
+      "params": {
+        "num_classes": 10,
+        "task": "multiclass"
+      },
+      "type": "CalibrationError"
+    },
+    "f1": {
+      "params": {
+        "average": "micro",
+        "num_classes": 10,
+        "task": "multiclass"
+      },
+      "type": "F1Score"
     }
   },
   "model": {
@@ -30,6 +73,7 @@
     },
     "type": "32-cct"
   },
+  "num_classes": 10,
   "opt": {
     "params": {
       "betas": [
@@ -43,27 +87,37 @@
     "type": "AdamW"
   },
   "pl": {
-    "checkpoint": {
-      "mode": "max",
-      "monitor": "val/acc"
-    },
+    "checkpoint": [
+      {
+        "filename": "max-acc",
+        "mode": "max",
+        "monitor": "val/acc"
+      },
+      {
+        "filename": "min-loss",
+        "mode": "min",
+        "monitor": "val/loss"
+      }
+    ],
     "trainer": {
       "accelerator": "gpu",
       "accumulate_grad_batches": 1,
       "benchmark": true,
-      "deterministic": true,
+      "deterministic": false,
       "devices": 1,
       "gradient_clip_algorithm": "norm",
       "gradient_clip_val": 0.5,
+      "limit_train_batches": 1.0,
       "limit_val_batches": 1.0,
-      "max_epochs": 10,
+      "max_epochs": 5,
       "num_sanity_val_steps": 0,
       "precision": "32",
       "strategy": "auto",
       "val_check_interval": 1.0
     }
   },
-  "run_id": null,
+  "probe_every": null,
+  "run_id": "uo6r9ie2",
   "run_name": "c10-cct",
   "scheduler": [
     [
