@@ -1,0 +1,103 @@
+{
+  "batch_size": 128,
+  "dataset": {
+    "aug": [],
+    "name": "m"
+  },
+  "log_latent": true,
+  "loss": {
+    "id": "ce",
+    "params": {
+      "reduction": "mean",
+      "weight": null
+    },
+    "type": "CrossEntropyLoss"
+  },
+  "metrics": {
+    "acc": {
+      "params": {
+        "average": "macro",
+        "num_classes": 10,
+        "task": "multiclass"
+      },
+      "type": "Accuracy"
+    },
+    "auroc": {
+      "params": {
+        "average": "macro",
+        "num_classes": 10,
+        "task": "multiclass",
+        "thresholds": 10
+      },
+      "type": "AUROC"
+    },
+    "ece": {
+      "params": {
+        "num_classes": 10,
+        "task": "multiclass"
+      },
+      "type": "CalibrationError"
+    },
+    "f1": {
+      "params": {
+        "average": "micro",
+        "num_classes": 10,
+        "task": "multiclass"
+      },
+      "type": "F1Score"
+    }
+  },
+  "model": {
+    "params": {
+      "in_channels": 1,
+      "num_classes": 10
+    },
+    "type": "rn18"
+  },
+  "num_classes": 10,
+  "opt": {
+    "params": {
+      "lr": 0.1,
+      "momentum": 0.9,
+      "nesterov": true,
+      "weight_decay": 2e-05
+    },
+    "type": "SGD"
+  },
+  "pl": {
+    "checkpoint": {
+      "filename": "max-acc",
+      "mode": "max",
+      "monitor": "val/acc"
+    },
+    "trainer": {
+      "accelerator": "gpu",
+      "accumulate_grad_batches": 1,
+      "benchmark": true,
+      "deterministic": false,
+      "devices": 1,
+      "gradient_clip_algorithm": "norm",
+      "gradient_clip_val": 1.0,
+      "limit_train_batches": 1.0,
+      "limit_val_batches": 1.0,
+      "max_epochs": 5,
+      "num_sanity_val_steps": 0,
+      "precision": "32",
+      "strategy": "auto",
+      "val_check_interval": 1.0
+    }
+  },
+  "probe_every": null,
+  "run_id": null,
+  "run_name": "m-rn18",
+  "scheduler": [
+    [
+      "lr",
+      "CosSched(0.1, 1e-6)"
+    ],
+    [
+      "weight_decay",
+      "CosSched(2e-5, 1e-4)"
+    ]
+  ]
+}
