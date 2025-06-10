@@ -110,7 +110,7 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x, return_latent=False):
+    def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
@@ -264,7 +264,7 @@ class CifarResNeXt(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x, return_latent=False):
+    def forward(self, x):
         x = self.conv_1_3x3(x)
         x = F.relu(self.bn_1(x), inplace=True)
         x = self.stage_1(x)
@@ -281,7 +281,7 @@ class CifarResNeXt(nn.Module):
 
 class ResNeXt29(CifarResNeXt):
 
-    def __init__(self, in_channels=3, num_classes=10, init_stride=1, return_latent=False):
+    def __init__(self, in_channels=3, num_classes=10, init_stride=1):
         super(ResNeXt29, self).__init__(
             ResNeXtBottleneck,
             29,

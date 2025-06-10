@@ -246,7 +246,7 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def _forward_impl(self, x: Tensor, return_latent=False) -> Tensor | Tuple[Tensor, Tensor]:
+    def _forward_impl(self, x: Tensor) -> Tensor | Tuple[Tensor, Tensor]:
         # See note [TorchScript super()]
         x = self.conv1(x)
         x = self.bn1(x)
@@ -266,8 +266,8 @@ class ResNet(nn.Module):
             "latent": latent,
         }
 
-    def forward(self, x: Tensor, return_latent=False) -> Tensor | Tuple[Tensor, Tensor]:
-        return self._forward_impl(x, return_latent=return_latent)
+    def forward(self, x: Tensor) -> Tensor | Tuple[Tensor, Tensor]:
+        return self._forward_impl(x)
 
 
 def _resnet(
@@ -316,7 +316,9 @@ if __name__ == "__main__":
     _model = resnet18()
     _model.eval()
     _x = torch.randn(1, 3, 224, 224)
-    _y, _l = _model(_x, return_latent=True)
+    _out = _model(_x)
+
+    _y, _l = _out["logits"], _out["latent"]
 
     print(_y.shape)
     print(_l.shape)

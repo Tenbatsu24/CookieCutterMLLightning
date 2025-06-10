@@ -127,12 +127,7 @@ class TransformerClassifier(Module):
 
         self.apply(self.init_weight)
 
-    def forward(self, x, return_latent=False):
-        if return_latent:
-            assert (
-                self.image_latent or self.patch_latent
-            ), "return_latent=True is only supported when image_latent or patch_latent is True."
-
+    def forward(self, x):
         if self.positional_emb is None and x.size(1) < self.sequence_length:
             x = F.pad(x, (0, 0, 0, self.n_channels - x.size(1)), mode="constant", value=0)
 
