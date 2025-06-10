@@ -179,10 +179,7 @@ class ResNet(nn.Module):
         )
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
-        if num_classes is not None:
-            self.classifier = nn.Linear(512 * block.expansion, num_classes)
-        else:
-            self.classifier = None
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -264,15 +261,10 @@ class ResNet(nn.Module):
         out = self.avgpool(x)
         latent = out.view(out.size(0), -1)
 
-        if self.classifier is not None:
-            out = self.classifier(latent)
-        else:
-            return latent
-
-        if return_latent:
-            return out, latent
-        else:
-            return out
+        return {
+            "logits": self.fc(latent),
+            "latent": latent,
+        }
 
     def forward(self, x: Tensor, return_latent=False) -> Tensor | Tuple[Tensor, Tensor]:
         return self._forward_impl(x, return_latent=return_latent)

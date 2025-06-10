@@ -100,10 +100,7 @@ class ResNet(nn.Module):
 
         self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
 
-        if num_classes is not None:
-            self.classifier = nn.Linear(512 * block.expansion, num_classes, bias=self.linear_bias)
-        else:
-            self.classifier = None
+        self.fc = nn.Linear(512 * block.expansion, num_classes, bias=self.linear_bias)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -122,15 +119,10 @@ class ResNet(nn.Module):
         out = self.avg_pool(out)
         latent = out.view(out.size(0), -1)
 
-        if self.classifier is not None:
-            out = self.classifier(latent)
-        else:
-            return latent
-
-        if return_latent:
-            return out, latent
-        else:
-            return out
+        return {
+            "logits": self.fc(latent),
+            "latent": latent,
+        }
 
 
 class ResNet18(ResNet):
@@ -236,10 +228,7 @@ class CifarResNeXt(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
-        if num_classes is not None:
-            self.classifier = nn.Linear(256 * block.expansion, num_classes)
-        else:
-            self.classifier = None
+        self.fc = nn.Linear(256 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -284,15 +273,10 @@ class CifarResNeXt(nn.Module):
         x = self.avgpool(x)
         latent = x.view(x.size(0), -1)
 
-        if self.classifier is not None:
-            out = self.classifier(latent)
-        else:
-            return latent
-
-        if return_latent:
-            return out, latent
-        else:
-            return out
+        return {
+            "logits": self.fc(latent),
+            "latent": latent,
+        }
 
 
 class ResNeXt29(CifarResNeXt):
