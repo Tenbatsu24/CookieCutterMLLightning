@@ -279,3 +279,21 @@ class NestedTensorBlock(Block):
             return self.forward_nested(x_or_x_list)
         else:
             raise AssertionError
+
+
+if __name__ == "__main__":
+    # Example usage
+    block = Block(dim=64, num_heads=8).to("cuda")
+    x = torch.randn(
+        10, 16, 64, device="cuda"
+    )  # Batch size 10, sequence length 16, feature dimension 64
+    output = block(x)
+    print(output.shape)  # Should be (10, 16, 64)
+
+    nested_block = NestedTensorBlock(dim=64, num_heads=8, attn_class=MemEffAttention).to("cuda")
+    nested_x = [
+        torch.randn(10, 16, 64, device="cuda"),
+        torch.randn(10, 16, 64, device="cuda"),
+    ]  # List of tensors
+    nested_output = nested_block(nested_x)
+    print([o.shape for o in nested_output])  # Should print shapes of tensors in the list
