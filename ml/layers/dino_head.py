@@ -14,12 +14,14 @@ class DINOHead(nn.Module):
         hidden_dim=2048,
         bottleneck_dim=256,
         mlp_bias=True,
+        l2_normalize=True,
     ):
         super().__init__()
         n_layers = max(n_layers, 1)
         self.mlp = _build_mlp(
             n_layers, in_dim, bottleneck_dim, hidden_dim=hidden_dim, use_bn=use_bn, bias=mlp_bias
         )
+        self.l2_normalize = l2_normalize
         self.apply(self._init_weights)
         self.last_layer = weight_norm(nn.Linear(bottleneck_dim, out_dim, bias=False))
         self.last_layer.weight_g.data.fill_(1)
@@ -32,10 +34,18 @@ class DINOHead(nn.Module):
 
     def forward(self, x):
         x = self.mlp(x)
-        eps = 1e-6 if x.dtype == torch.float16 else 1e-12
-        x = nn.functional.normalize(x, dim=-1, p=2, eps=eps)
-        x = self.last_layer(x)
-        return x
+        if self.l2_normalize:
+            # Use a small epsilon to avoid division by zero
+            # This is especially important for float16 inputs
+            eps = 1e-6 if x.dtype == torch.float16 else 1e-12
+            x = nn.functional.normalize(x, dim=-1, p=2, eps=eps)
+
+        classifier = self.last_layer(x)
+
+        return {
+            "logits": classifier,
+            "proj": x,
+        }
 
 
 def _build_mlp(nlayers, in_dim, bottleneck_dim, hidden_dim=None, use_bn=False, bias=True):
