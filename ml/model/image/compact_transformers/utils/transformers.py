@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-from einops import rearrange
 
 from torch.nn import Module, ModuleList, Linear, Dropout, LayerNorm, Identity, Parameter, init
 
@@ -155,7 +154,7 @@ class TransformerClassifier(Module):
 
         return {
             "latent": image_latent,
-            "patch_latent": rearrange(patch_latent, "b n d -> (b n) d").contiguous(),
+            "patch_latent": patch_latent,
             "logits": self.fc(image_latent),
         }
 
