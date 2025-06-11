@@ -76,12 +76,7 @@ class BaseTrainer(pl.LightningModule):
 
         metrics = self.make_metrics()
         metrics = torchmetrics.MetricCollection(metrics)
-        if self.config.dataset.name == "in":
-            # don't use the metrics for training for ImageNet
-            # since that makes it slower x2 as 140gb of training data metrics will be saved
-            self.train_metrics = torchmetrics.MetricCollection({}).clone(prefix="train/")
-        else:
-            self.train_metrics = metrics.clone(prefix="train/")
+
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
 
@@ -93,6 +88,13 @@ class BaseTrainer(pl.LightningModule):
                     "log_cosh": torchmetrics.LogCoshError(num_outputs=self.config.num_classes),
                 }
             ).clone(prefix="train/")
+
+        if self.config.dataset.name == "in":
+            # don't use the metrics for training for ImageNet
+            # since that makes it slower x2 as 140gb of training data metrics will be saved
+            self.train_metrics = torchmetrics.MetricCollection({}).clone(prefix="train/")
+        else:
+            self.train_metrics = metrics.clone(prefix="train/")
 
         # define summary metrics for wandb
         for key, metric in self.val_metrics.items():
