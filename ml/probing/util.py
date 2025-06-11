@@ -123,7 +123,7 @@ def load_data(encoder: nn.Module, dl: DataLoader, device: torch.device = None):
         if device:
             inputs, targets = inputs.to(device), targets.to(device)
 
-        *_, embeddings = wrap_to_tuple_maybe(encoder(inputs, return_latent=True))
+        embeddings = encoder(inputs)["latent"]
         if not flag:
             flag = True
 

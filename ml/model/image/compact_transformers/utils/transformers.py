@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-from einops import rearrange
 
 from torch.nn import Module, ModuleList, Linear, Dropout, LayerNorm, Identity, Parameter, init
 
@@ -53,7 +52,7 @@ class TransformerClassifier(Module):
         num_layers=12,
         num_heads=12,
         mlp_ratio=4.0,
-        num_classes=None,
+        num_classes=1000,
         dropout=0.1,
         attention_dropout=0.1,
         stochastic_depth=0.1,
@@ -123,19 +122,11 @@ class TransformerClassifier(Module):
         )
         self.norm = LayerNorm(embedding_dim)
 
-        if num_classes is not None:
-            self.fc = Linear(embedding_dim, num_classes)
-        else:
-            self.fc = None
+        self.fc = Linear(embedding_dim, num_classes)
 
         self.apply(self.init_weight)
 
-    def forward(self, x, return_latent=False):
-        if return_latent:
-            assert (
-                self.image_latent or self.patch_latent
-            ), "return_latent=True is only supported when image_latent or patch_latent is True."
-
+    def forward(self, x):
         if self.positional_emb is None and x.size(1) < self.sequence_length:
             x = F.pad(x, (0, 0, 0, self.n_channels - x.size(1)), mode="constant", value=0)
 
@@ -152,40 +143,20 @@ class TransformerClassifier(Module):
             x = blk(x)
         x = self.norm(x)
 
-        if not self.patch_latent:
-            if self.seq_pool:
-                image_latent = torch.matmul(
-                    F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x
-                ).squeeze(-2)
-            else:
-                image_latent = x[:, 0]
-
-            if self.fc is None:
-                return image_latent
-            else:
-                out = self.fc(image_latent)
-                if return_latent:
-                    return out, image_latent
-                else:
-                    return out
+        if self.seq_pool:
+            image_latent = torch.matmul(
+                F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x
+            ).squeeze(-2)
+            patch_latent = x
         else:
-            if self.seq_pool:
-                patch_latent = x
-                image_latent = torch.matmul(
-                    F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x
-                ).squeeze(-2)
-            else:
-                patch_latent = x[:, 1:]
-                image_latent = x[:, 0]
+            image_latent = x[:, 0]
+            patch_latent = x[:, 1:]
 
-            if self.fc is None:
-                return rearrange(patch_latent, "b n d -> (b n) d").contiguous()
-            else:
-                out = self.fc(image_latent)
-                if return_latent:
-                    return out, rearrange(patch_latent, "b n d -> (b n) d").contiguous()
-                else:
-                    return out
+        return {
+            "latent": image_latent,
+            "patch_latent": patch_latent,
+            "logits": self.fc(image_latent),
+        }
 
     @staticmethod
     def init_weight(m):
