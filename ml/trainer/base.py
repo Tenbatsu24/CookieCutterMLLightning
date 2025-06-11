@@ -149,22 +149,34 @@ class BaseTrainer(pl.LightningModule):
                     self.config.model.params.num_classes
                     and value.shape[0] != self.config.model.params.num_classes
                 ):
-                    continue
-                else:
-                    checkpoint[key.replace("fc", "classifier")] = value
+                    checkpoint[key.replace("fc", "throwaway")] = value
                     keys_to_del.append(key)
 
             for key in keys_to_del:
                 del checkpoint[key]
 
             missing_keys, unexpected_keys = model.load_state_dict(checkpoint, strict=False)
+            # assert that missing keys all have "fc" in their name if any missing keys
+            assert (
+                all("fc" in key for key in missing_keys) or not missing_keys
+            ), "Missing keys should be related to the classifier, " "but found: {}".format(
+                missing_keys
+            )
 
-            logger.warning(f"Missing keys: {missing_keys}")
-            logger.warning(f"Unexpected keys: {unexpected_keys}")
+            # assert that all unexpected keys are "throwaway"
+            assert (
+                all("throwaway" in key for key in unexpected_keys) or not unexpected_keys
+            ), "Unexpected keys should be related to the classifier, " "but found: {}".format(
+                unexpected_keys
+            )
+
+            if len(missing_keys) > 0 or len(unexpected_keys) > 0:
+                logger.warning(f"Missing keys: {missing_keys}")
+                logger.warning(f"Unexpected keys: {unexpected_keys}")
 
             if hasattr(self.config.finetune, "frozen") and self.config.finetune.frozen:
                 for name, param in model.named_parameters():
-                    if "classifier" not in name:
+                    if "fc" not in name:
                         param.requires_grad = False
                     else:
                         param.requires_grad = True
@@ -219,7 +231,7 @@ class BaseTrainer(pl.LightningModule):
             with torch.no_grad():
                 x, y = self.aug(x, y)
 
-        y_hat = self.model(self.normalisation(x))
+        y_hat = self.model(self.normalisation(x))["logits"]  # type: ignore
         loss = self.criterion(y_hat, y)
         return loss, y, y_hat
 
@@ -346,7 +358,7 @@ class BaseTrainer(pl.LightningModule):
                 data, target = data.to(device), target.to(device)
 
                 data = self.normalisation(data)
-                output = self.model(data)
+                output = self.model(data)["logits"]  # type: ignore
 
                 self.test_metrics.update(output, target.long())
 
