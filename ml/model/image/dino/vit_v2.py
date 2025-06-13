@@ -386,6 +386,22 @@ class DinoVisionTransformer(nn.Module):
 
         if was_list:
             image_latents = [out_dict["x_norm_clstoken"] for out_dict in list_out_dict]
+            list_dict_proj_proto_cls = [self.head(image_latent) for image_latent in image_latents]
+            cls_projs, cls_logits = zip(
+                *[
+                    (dict_proj_proto["proj"], dict_proj_proto["logits"])
+                    for dict_proj_proto in list_dict_proj_proto_cls
+                ]
+            )
+
+            out = {
+                "latent": [
+                    torch.stack(torch.chunk(cls_token, bs)).squeeze(1)
+                    for cls_token in image_latents
+                ],
+                "proj": [torch.stack(torch.chunk(proj, bs)).squeeze(1) for proj in cls_projs],
+                "logits": [torch.stack(torch.chunk(logit, bs)).squeeze(1) for logit in cls_logits],
+            }
 
             if self.finegrained:
                 patch_latents = [
@@ -402,63 +418,42 @@ class DinoVisionTransformer(nn.Module):
                     ]
                 )
 
-                out = {
-                    "latent": [
-                        torch.stack(torch.chunk(cls_token, bs)).squeeze(1)
-                        for cls_token in image_latents
-                    ],
-                    "patch_latent": [
-                        torch.stack(torch.chunk(latent, bs)) for latent in patch_latents
-                    ],
-                    "proj": [torch.stack(torch.chunk(proj, bs)) for proj in patch_projs],
-                    "logits": [torch.stack(torch.chunk(logit, bs)) for logit in patch_logits],
-                }
-            else:
-                list_dict_proj_proto_cls = [
-                    self.head(image_latent) for image_latent in image_latents
-                ]
-                cls_projs, cls_logits = zip(
-                    *[
-                        (dict_proj_proto["proj"], dict_proj_proto["logits"])
-                        for dict_proj_proto in list_dict_proj_proto_cls
-                    ]
+                out.update(
+                    {
+                        "patch_latent": [
+                            torch.stack(torch.chunk(latent, bs)) for latent in patch_latents
+                        ],
+                        "patch_proj": [torch.stack(torch.chunk(proj, bs)) for proj in patch_projs],
+                        "patch_logits": [
+                            torch.stack(torch.chunk(logit, bs)) for logit in patch_logits
+                        ],
+                    }
                 )
-
-                out = {
-                    "latent": [
-                        torch.stack(torch.chunk(cls_token, bs)).squeeze(1)
-                        for cls_token in image_latents
-                    ],
-                    "proj": [torch.stack(torch.chunk(proj, bs)).squeeze(1) for proj in cls_projs],
-                    "logits": [
-                        torch.stack(torch.chunk(logit, bs)).squeeze(1) for logit in cls_logits
-                    ],
-                }
         else:
             attentions = list_out_dict["last_self_attention"]
             image_latents = list_out_dict["x_norm_clstoken"]
+
+            proj_logits_cls = self.head(image_latents)
+            proj_cls, logits_cls = proj_logits_cls["proj"], proj_logits_cls["logits"]
+
+            out = {
+                "latent": torch.stack(torch.chunk(image_latents, bs)).squeeze(1),
+                "proj": torch.stack(torch.chunk(proj_cls, bs)).squeeze(1),
+                "logits": torch.stack(torch.chunk(logits_cls, bs)).squeeze(1),
+                "attentions": attentions,
+            }
 
             if self.finegrained:
                 patch_latents = list_out_dict["x_norm_patchtokens"].reshape(-1, self.embed_dim)
                 proj_logits_patch = self.head(patch_latents)
                 patch_projs, patch_logits = proj_logits_patch["proj"], proj_logits_patch["logits"]
-                out = {
-                    "latent": torch.stack(torch.chunk(image_latents, bs)).squeeze(1),
-                    "patch_latent": torch.stack(torch.chunk(patch_latents, bs)),
-                    "proj": torch.stack(torch.chunk(patch_projs, bs)),
-                    "logits": torch.stack(torch.chunk(patch_logits, bs)),
-                    "attentions": attentions,
-                }
-            else:
-                proj_logits_cls = self.head(image_latents)
-                proj_cls, logits_cls = proj_logits_cls["proj"], proj_logits_cls["logits"]
-
-                out = {
-                    "latent": torch.stack(torch.chunk(image_latents, bs)).squeeze(1),
-                    "proj": torch.stack(torch.chunk(proj_cls, bs)).squeeze(1),
-                    "logits": torch.stack(torch.chunk(logits_cls, bs)).squeeze(1),
-                    "attentions": attentions,
-                }
+                out.update(
+                    {
+                        "patch_latent": torch.stack(torch.chunk(patch_latents, bs)),
+                        "patch_proj": torch.stack(torch.chunk(patch_projs, bs)),
+                        "patch_logits": torch.stack(torch.chunk(patch_logits, bs)),
+                    }
+                )
 
         return out
 

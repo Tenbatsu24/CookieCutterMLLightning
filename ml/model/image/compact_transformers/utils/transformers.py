@@ -58,13 +58,9 @@ class TransformerClassifier(Module):
         stochastic_depth=0.1,
         positional_embedding="learnable",
         sequence_length=None,
-        patch_latent=False,
-        image_latent=False,
+        finegrained=False,
     ):
         super().__init__()
-        assert not (
-            image_latent and patch_latent
-        ), "Image latent and patch latent cannot be used at the same time."
         positional_embedding = (
             positional_embedding
             if positional_embedding in ["sine", "learnable", "none"]
@@ -77,8 +73,8 @@ class TransformerClassifier(Module):
         self.seq_pool = seq_pool
         self.num_tokens = 0
 
-        self.patch_latent = patch_latent
-        self.image_latent = image_latent
+        self.patch_latent = finegrained
+        self.image_latent = True
 
         assert sequence_length is not None or positional_embedding == "none", (
             f"Positional embedding is set to {positional_embedding} and"
@@ -152,11 +148,19 @@ class TransformerClassifier(Module):
             image_latent = x[:, 0]
             patch_latent = x[:, 1:]
 
-        return {
+        out = {
             "latent": image_latent,
-            "patch_latent": patch_latent,
             "logits": self.fc(image_latent),
         }
+
+        if self.patch_latent:
+            out.update(
+                {
+                    "patch_latent": patch_latent,
+                    "patch_logits": self.fc(patch_latent),
+                }
+            )
+        return out
 
     @staticmethod
     def init_weight(m):
