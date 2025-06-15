@@ -8,7 +8,7 @@ class ViTLite(BaseCompactTransformer):
         self,
         img_size=224,
         embedding_dim=768,
-        n_input_channels=3,
+        in_channels=3,
         kernel_size=16,
         dropout=0.0,
         attention_dropout=0.1,
@@ -26,7 +26,7 @@ class ViTLite(BaseCompactTransformer):
             f"Image size ({img_size}) has to be" f"divisible by patch size ({kernel_size})"
         )
         self.tokenizer = Tokenizer(
-            n_input_channels=n_input_channels,
+            n_input_channels=in_channels,
             n_output_channels=embedding_dim,
             kernel_size=kernel_size,
             stride=kernel_size,
@@ -39,7 +39,7 @@ class ViTLite(BaseCompactTransformer):
 
         self.classifier = TransformerClassifier(
             sequence_length=self.tokenizer.sequence_length(
-                n_channels=n_input_channels, height=img_size, width=img_size
+                n_channels=in_channels, height=img_size, width=img_size
             ),
             embedding_dim=embedding_dim,
             seq_pool=False,

@@ -57,7 +57,7 @@ class DinoVisionTransformer(nn.Module):
         self,
         img_size=518,
         patch_size=16,
-        in_chans=3,
+        in_channels=3,
         embed_dim=768,
         depth=12,
         num_heads=12,
@@ -88,7 +88,7 @@ class DinoVisionTransformer(nn.Module):
         Args:
             img_size (int, tuple): input image size
             patch_size (int, tuple): patch size
-            in_chans (int): number of input channels
+            in_channels (int): number of input channels
             embed_dim (int): embedding dimension
             depth (int): depth of transformer
             num_heads (int): number of attention heads
@@ -127,7 +127,7 @@ class DinoVisionTransformer(nn.Module):
         self.finegrained = finegrained
 
         self.patch_embed = embed_layer(
-            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim
+            img_size=img_size, patch_size=patch_size, in_chans=in_channels, embed_dim=embed_dim
         )
         num_patches = self.patch_embed.num_patches
 

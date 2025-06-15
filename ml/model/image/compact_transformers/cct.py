@@ -10,7 +10,7 @@ class CCT(BaseCompactTransformer):
         self,
         img_size=224,
         embedding_dim=768,
-        n_input_channels=3,
+        in_channels=3,
         kernel_size=7,
         dropout=0.0,
         attention_dropout=0.1,
@@ -32,7 +32,7 @@ class CCT(BaseCompactTransformer):
         super(CCT, self).__init__()
 
         self.tokenizer = Tokenizer(
-            n_input_channels=n_input_channels,
+            n_input_channels=in_channels,
             n_output_channels=embedding_dim,
             kernel_size=kernel_size,
             stride=stride,
@@ -48,7 +48,7 @@ class CCT(BaseCompactTransformer):
 
         self.classifier = TransformerClassifier(
             sequence_length=self.tokenizer.sequence_length(
-                n_channels=n_input_channels, height=img_size, width=img_size
+                n_channels=in_channels, height=img_size, width=img_size
             ),
             embedding_dim=embedding_dim,
             dropout=dropout,
