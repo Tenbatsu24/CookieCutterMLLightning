@@ -1,3 +1,4 @@
+import torch
 import wandb
 import lightning.pytorch as pl
 
@@ -15,12 +16,22 @@ class MyModelCheckpoint(ModelCheckpoint):
         self._enable_version_counter = False
 
     def _save_checkpoint(self, trainer: "pl.Trainer", filepath: str) -> None:
+        weights_only = not self.save_last
         trainer.save_checkpoint(
-            filepath, weights_only=not self.save_last
+            filepath, weights_only=weights_only
         )  # save weights only if not saving last
 
         self._last_global_step_saved = trainer.global_step
         self._last_checkpoint_saved = filepath
+
+        # if weights_only, remove model. from the keys of the state dict
+        if weights_only:
+            state_dict = torch.load(filepath, map_location=torch.device("cpu"), weights_only=True)
+            # rename the keys to remove 'model.'
+            state_dict = {k.replace("model.", ""): v for k, v in state_dict.items()}
+            # save the state dict back to the file
+            torch.save(state_dict, filepath)
+            logger.info(f"Removed 'model.' prefix from state dict keys in {filepath}.")
 
         # check if wandb is available and if the run is active
         wandb_run = wandb.run
