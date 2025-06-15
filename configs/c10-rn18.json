@@ -3,11 +3,11 @@
   "dataset": {
     "aug": [
       {
-        "id": "taw",
+        "id": "tmix",
         "params": {
           "all_ops": true
         },
-        "type": "taw"
+        "type": "tmix"
       }
     ],
     "gen_test": [
