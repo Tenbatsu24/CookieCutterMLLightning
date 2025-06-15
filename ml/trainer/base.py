@@ -136,6 +136,8 @@ class BaseTrainer(pl.LightningModule):
         if hasattr(self.config, "finetune") and self.config.finetune.enable:
             # load the model from the checkpoint
             checkpoint = torch.load(MODELS_DIR / self.config.finetune.state_dict_path)
+            if "state_dict" in checkpoint:
+                checkpoint = checkpoint["state_dict"]
 
             # replace key with fc to classifier
             keys_to_del = []
