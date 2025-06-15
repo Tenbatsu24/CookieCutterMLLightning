@@ -69,9 +69,9 @@
     "params": {
       "img_size": 32,
       "in_channels": 3,
-      "num_classes": 10
+      "prototypes": 10
     },
-    "type": "32-cct"
+    "type": "vit-s"
   },
   "num_classes": 10,
   "opt": {
@@ -118,7 +118,7 @@
   },
   "probe_every": null,
   "run_id": null,
-  "run_name": "c10-cct",
+  "run_name": "c10-vit-s",
   "scheduler": [
     [
       "lr",

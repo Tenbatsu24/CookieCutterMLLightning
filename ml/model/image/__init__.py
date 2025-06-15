@@ -20,10 +20,10 @@ STORE.register(MODEL_TYPE, "224-cvt", cvt_14_16_224)
 STORE.register(MODEL_TYPE, "32-vit-lite", vit_lite_7_4_32)
 STORE.register(MODEL_TYPE, "rn18im", resnet18)
 STORE.register(MODEL_TYPE, "rn50im", resnet50)
-STORE.register(MODEL_TYPE, "vit_s", vit_small)
-STORE.register(MODEL_TYPE, "vit_b", vit_base)
-STORE.register(MODEL_TYPE, "vit_l", vit_large)
-STORE.register(MODEL_TYPE, "vit_g", vit_giant)
+STORE.register(MODEL_TYPE, "vit-s", vit_small)
+STORE.register(MODEL_TYPE, "vit-b", vit_base)
+STORE.register(MODEL_TYPE, "vit-l", vit_large)
+STORE.register(MODEL_TYPE, "vit-g", vit_giant)
 
 __all__ = [
     "ResNet18",
